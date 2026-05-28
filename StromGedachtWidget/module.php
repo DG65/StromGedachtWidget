@@ -1,22 +1,22 @@
 <?php
 
-<?php
-
 class StromGedachtWidget extends IPSModule
 {
     public function Create()
     {
         parent::Create();
 
+        // Einstellungen
         $this->RegisterPropertyInteger("UpdateInterval", 300);
 
-        // ✅ FIX: direkter Methodenaufruf
+        // ✅ Symcon-kompatibler Timer
         $this->RegisterTimer(
             "UpdateTimer",
             0,
-            '$this->Update();'
+            'SGW_Update($_IPS["TARGET"]);'
         );
 
+        // Variablen
         $this->RegisterVariableInteger("State", "Ampel", "", 1);
         $this->RegisterVariableString("Text", "Status Text", "", 2);
         $this->RegisterVariableString("Updated", "Aktualisiert", "", 3);
@@ -33,8 +33,16 @@ class StromGedachtWidget extends IPSModule
         $this->Update();
     }
 
+    // ✅ WICHTIG: Wrapper für Timer
+    public function SGW_Update()
+    {
+        $this->Update();
+    }
+
     public function Update()
     {
+        $this->SendDebug("Update", "läuft", 0);
+
         $data = $this->CallAPI();
 
         if ($data === null) {
@@ -58,7 +66,7 @@ class StromGedachtWidget extends IPSModule
         $this->UpdateWidget($state, $text);
     }
 
-    // ✅ Profi API Call mit Headern + Debug
+    // ✅ Profi API Call mit Headern
     private function CallAPI()
     {
         $url = "https://api.stromgedacht.de/v1/now";
@@ -89,13 +97,12 @@ class StromGedachtWidget extends IPSModule
             return null;
         }
 
-        // ✅ Debug Output (sehr hilfreich)
         $this->SendDebug("API Response", json_encode($data), 0);
 
         return $data;
     }
 
-    // ✅ Visuelles Widget (verbesserte Version)
+    // ✅ Schöne visuelle Ampel (LED Style)
     private function UpdateWidget($state, $text)
     {
         $colors = [
