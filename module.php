@@ -6,31 +6,22 @@ class StromGedachtWidget extends IPSModule
     {
         parent::Create();
 
-        // Einstellungen
         $this->RegisterPropertyInteger("UpdateInterval", 300);
-
-        // Timer
         $this->RegisterTimer("UpdateTimer", 0, 'SGW_Update($_IPS["TARGET"]);');
 
-        // Profil
         $this->CreateProfile();
 
-        // Variablen
         $this->RegisterVariableInteger("State", "Ampel", "SGW.State", 1);
         $this->RegisterVariableString("Text", "Status Text", "", 2);
         $this->RegisterVariableString("Updated", "Aktualisiert", "", 3);
-
-        // HTML Widget
         $this->RegisterVariableString("Widget", "Anzeige", "~HTMLBox", 4);
     }
 
     public function ApplyChanges()
     {
         parent::ApplyChanges();
-
         $interval = $this->ReadPropertyInteger("UpdateInterval") * 1000;
         $this->SetTimerInterval("UpdateTimer", $interval);
-
         $this->Update();
     }
 
@@ -59,7 +50,6 @@ class StromGedachtWidget extends IPSModule
         $result = @file_get_contents($url, false, $context);
 
         if ($result === false) {
-            $this->SendDebug("API", "Fehler beim Abruf", 0);
             return;
         }
 
@@ -84,60 +74,16 @@ class StromGedachtWidget extends IPSModule
 
     private function UpdateWidget($state, $text)
     {
-        $colors = [
-            0 => "#00c853",
-            1 => "#ffd600",
-            2 => "#d50000"
-        ];
+        $colors = [0 => "#00c853", 1 => "#ffd600", 2 => "#d50000"];
+        $icons = [0 => "🟢", 1 => "🟡", 2 => "🔴"];
 
-        $icons = [
-            0 => "🟢",
-            1 => "🟡",
-            2 => "🔴"
-        ];
-
-        $html = '
-        <div style="
-            text-align:center;
-            font-family:Arial;
-            padding:20px;
-        ">
-            <div style="
-                font-size:60px;
-                margin-bottom:10px;
-            ">
-                ' . $icons[$state] . '
-            </div>
-
-            <div style="
-                font-size:24px;
-                font-weight:bold;
-                color:' . $colors[$state] . ';
-                margin-bottom:10px;
-            ">
-                Stromstatus
-            </div>
-
-            <div style="
-                font-size:16px;
-                margin-bottom:10px;
-            ">
-                ' . $text . '
-            </div>
-
-            <div style="
-                font-size:12px;
-                color:gray;
-            ">
-                Aktualisiert: ' . date("d.m.Y H:i:s") . '
-            </div>
-        </div>';
+        $html = '<div style="text-align:center;font-family:Arial;padding:20px;">'
+              . '<div style="font-size:60px;margin-bottom:10px;">' . $icons[$state] . '</div>'
+              . '<div style="font-size:24px;font-weight:bold;color:' . $colors[$state] . ';margin-bottom:10px;">Stromstatus</div>'
+              . '<div style="font-size:16px;margin-bottom:10px;">' . $text . '</div>'
+              . '<div style="font-size:12px;color:gray;">Aktualisiert: ' . date("d.m.Y H:i:s") . '</div>'
+              . '</div>';
 
         SetValue($this->GetIDForIdent("Widget"), $html);
-    }
-
-    public function ManualUpdate()
-    {
-        $this->Update();
     }
 }
