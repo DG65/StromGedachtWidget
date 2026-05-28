@@ -1,9 +1,9 @@
 {
     "id": "{D5A8C3A1-2222-4A55-8888-123456789003}",
-    "name": "StromGedacht Widget",
+    "name": "Strom gedacht",
     "type": 3,
-    "vendor": "Custom",
-    "aliases": ["StromGedacht Ampel"],
+    "vendor": "Dietmar Gureth",
+    "aliases": ["Strom gedacht Ampel"],
     "parentRequirements": [],
     "childRequirements": [],
     "implemented": ["{D5A8C3A1-2222-4A55-8888-123456789003}"],
