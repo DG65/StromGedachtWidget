@@ -1,7 +1,11 @@
 {
     "id": "{D5A8C3A1-2222-4A55-8888-123456789000}",
     "author": "Dietmar Gureth",
-    "url": "",
+    "name": "Strom gedacht"
+    "url": "https://api.stromgedacht.de",
+    "compatibility": {
+    "version": "8.0"
+  },
     "version": "1.0",
     "build": 1,
     "date": 20260528
