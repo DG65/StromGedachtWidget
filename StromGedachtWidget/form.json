@@ -1,0 +1,30 @@
+{
+    "elements": [
+        {
+            "type": "ValidationTextBox",
+            "name": "ZipCode",
+            "caption": "Postleitzahl"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "UpdateInterval",
+            "caption": "Aktualisierungsintervall",
+            "suffix": " Sekunden",
+            "minimum": 60
+        }
+    ],
+    "actions": [
+        {
+            "type": "Button",
+            "caption": "Jetzt aktualisieren",
+            "onClick": "SGW_Update($id);"
+        }
+    ],
+    "status": [
+        {
+            "code": 104,
+            "icon": "inactive",
+            "caption": "Bitte Postleitzahl konfigurieren"
+        }
+    ]
+}
