@@ -1,12 +1,14 @@
 # StromGedachtWidget
 
-IP-Symcon-Modul, das Stromampel-Signale aus wählbaren Quellen abruft und als Ampel-Widget darstellt:
+IP-Symcon-Modul, das Stromampel-Signale aus bis zu drei Quellen parallel abruft und nebeneinander als Ampel-Widget darstellt:
 
 - **[StromGedacht](https://www.stromgedacht.de)** (TransnetBW) — *Netz-Signal*: Wann ist es netzdienlich, Verbrauch zu verschieben? Abdeckung: Baden-Württemberg sowie Pilotgebiete (z. B. Teile Niedersachsens).
 - **[GrünstromIndex](https://gruenstromindex.de)** (Corrently/STROMDAO) — *Öko-Signal*: Wie grün ist der Strommix in der Region (0–100)? Abdeckung: ganz Deutschland, per Postleitzahl.
 - **[Energy-Charts Stromampel](https://www.energy-charts.info)** (Fraunhofer ISE) — *Öko-Signal*: Anteil erneuerbarer Energien an der Last, deutschlandweit.
 
-> **Hinweis:** Netz-Signal und Öko-Signal sind unterschiedliche Größen. StromGedacht meldet drohende Netzengpässe (Redispatch), GrünstromIndex und Energy-Charts bewerten den Anteil erneuerbarer Energien. Ein grüner Strommix kann mit angespanntem Netz zusammenfallen — und umgekehrt. Wer beide Signale will, legt einfach zwei Instanzen mit unterschiedlicher Datenquelle an.
+> **Hinweis:** Netz-Signal und Öko-Signal sind unterschiedliche Größen. StromGedacht meldet drohende Netzengpässe (Redispatch), GrünstromIndex und Energy-Charts bewerten den Anteil erneuerbarer Energien. Ein grüner Strommix kann mit angespanntem Netz zusammenfallen — und umgekehrt. Genau deshalb zeigt das Widget alle aktivierten Quellen nebeneinander.
+
+Jede Quelle lässt sich einzeln aktivieren. Liefert eine Quelle keine Daten (z. B. weil die Postleitzahl außerhalb des StromGedacht-Gebiets liegt), zeigt ihre Spalte im Widget „Keine Daten" mit grauer LED — die übrigen Quellen laufen normal weiter.
 
 ## Zustände je Datenquelle
 
@@ -53,36 +55,41 @@ Updates werden ebenfalls über die Modulverwaltung eingespielt („Aktualisieren
 
 | Einstellung | Beschreibung | Standard |
 |-------------|--------------|----------|
-| Datenquelle | StromGedacht, GrünstromIndex oder Energy-Charts | StromGedacht |
-| Postleitzahl | PLZ des Standorts (Pflicht bei StromGedacht und GrünstromIndex) | — |
+| StromGedacht aktivieren | Netz-Signal der TransnetBW abrufen | an |
+| GrünstromIndex aktivieren | Öko-Signal von Corrently abrufen | an |
+| Energy-Charts aktivieren | Öko-Signal des Fraunhofer ISE abrufen | an |
+| Postleitzahl | PLZ des Standorts (Pflicht, sobald StromGedacht oder GrünstromIndex aktiv ist) | — |
 | Aktualisierungsintervall | Abrufintervall in Sekunden (Minimum 60) | 300 |
 
 Über die Schaltfläche **„Jetzt aktualisieren"** lässt sich der Abruf manuell auslösen.
 
-**Beim Wechsel der Datenquelle** werden die Variablen der bisherigen Quelle entfernt (inklusive eventueller Logging-Historie) und die der neuen Quelle angelegt.
+**Beim Deaktivieren einer Quelle** werden ihre Variablen entfernt (inklusive eventueller Logging-Historie) und beim erneuten Aktivieren neu angelegt.
 
 ## Erstellte Variablen
 
 | Ident | Name | Quelle | Typ | Beschreibung |
 |-------|------|--------|-----|--------------|
 | `State` | Ampel | StromGedacht | Integer (`SGW.State`) | Aktueller Netz-Zustand |
+| `Text` | Status Text | StromGedacht | String | Empfehlungstext zum aktuellen Zustand |
 | `GSI` | GrünstromIndex | GrünstromIndex | Float (`SGW.GSI`) | Aktueller Indexwert 0–100 % |
 | `ECSignal` | Stromampel | Energy-Charts | Integer (`SGW.ECSignal`) | Aktuelles Ampelsignal |
 | `ECShare` | EE-Anteil | Energy-Charts | Float (`SGW.Percent`) | Anteil erneuerbarer Energien an der Last |
-| `Text` | Status Text | alle | String | Empfehlungstext zum aktuellen Zustand |
-| `Updated` | Aktualisiert | alle | Integer (`~UnixTimestamp`) | Zeitpunkt der letzten erfolgreichen Aktualisierung |
-| `Widget` | Anzeige | alle | String (`~HTMLBox`) | Ampel-Darstellung für die Visualisierung |
+| `Updated` | Aktualisiert | immer | Integer (`~UnixTimestamp`) | Zeitpunkt der letzten erfolgreichen Aktualisierung |
+| `Widget` | Anzeige | immer | String (`~HTMLBox`) | Alle aktivierten Quellen nebeneinander als Ampel-Spalten |
+
+Die quellenspezifischen Variablen existieren nur, solange die jeweilige Quelle aktiviert ist.
 
 ## Instanz-Status
 
 | Code | Bedeutung |
 |------|-----------|
-| 102 | Aktiv — Daten werden abgerufen |
+| 102 | Aktiv — mindestens eine aktivierte Quelle liefert Daten |
 | 104 | Postleitzahl fehlt (bei StromGedacht und GrünstromIndex erforderlich) |
-| 201 | Für die konfigurierte Postleitzahl liegen keine Daten vor (z. B. PLZ außerhalb des StromGedacht-Gebiets oder Tippfehler) |
-| 202 | API nicht erreichbar oder ungültige Antwort (Details im Debug-Fenster) |
+| 201 | Für die konfigurierte Postleitzahl liegen bei keiner aktivierten Quelle Daten vor |
+| 202 | Keine aktivierte Quelle erreichbar (Details im Debug-Fenster) |
+| 203 | Keine Datenquelle aktiviert |
 
-Bei Status 201 wird der Hinweis zusätzlich in die Variable „Status Text" und in das Widget geschrieben, damit er auch in der Visualisierung sichtbar ist.
+Fällt nur ein Teil der Quellen aus, bleibt die Instanz aktiv — der Ausfall ist in der betroffenen Widget-Spalte („Keine Daten", graue LED) und im Debug-Fenster sichtbar.
 
 ## PHP-Funktionen
 
@@ -104,10 +111,10 @@ Alle drei APIs sind ohne Schlüssel nutzbar (StromGedacht und GrünstromIndex f�
 ## Fehlerbehebung
 
 **Die Instanz zeigt „Bitte Postleitzahl konfigurieren"**
-Es ist keine PLZ hinterlegt. PLZ eintragen und übernehmen (bei Energy-Charts nicht erforderlich).
+Es ist keine PLZ hinterlegt. PLZ eintragen und übernehmen (nur nötig, wenn StromGedacht oder GrünstromIndex aktiviert ist).
 
-**Die Instanz zeigt „Für diese Postleitzahl liegen keine Daten vor"**
-Die PLZ ist der Quelle unbekannt oder liegt außerhalb ihres Gebiets. Bei StromGedacht: Die API deckt im Wesentlichen Baden-Württemberg ab — für andere Regionen GrünstromIndex oder Energy-Charts als Datenquelle wählen.
+**Die StromGedacht-Spalte zeigt „Keine Daten"**
+Die PLZ liegt außerhalb des StromGedacht-Gebiets (im Wesentlichen Baden-Württemberg). GrünstromIndex und Energy-Charts decken ganz Deutschland ab und laufen davon unabhängig weiter.
 
 **Die Ampel zeigt einen anderen Zustand als die StromGedacht-App**
 Vermutlich hängt die Variable „Ampel" noch an einem Variablenprofil einer älteren Modulversion. Lösung: Variable „Ampel" öffnen und das benutzerdefinierte Profil entfernen bzw. auf `SGW.State` stellen — oder die Variable löschen und in der Instanz „Übernehmen" klicken (sie wird mit korrektem Profil neu angelegt).

@@ -1,23 +1,19 @@
 {
     "elements": [
         {
-            "type": "Select",
-            "name": "Source",
-            "caption": "Datenquelle",
-            "options": [
-                {
-                    "caption": "StromGedacht (TransnetBW, Netz-Signal, PLZ erforderlich)",
-                    "value": 0
-                },
-                {
-                    "caption": "GrünstromIndex (Corrently, Öko-Signal, PLZ erforderlich)",
-                    "value": 1
-                },
-                {
-                    "caption": "Energy-Charts Stromampel (Fraunhofer ISE, Öko-Signal, ganz Deutschland)",
-                    "value": 2
-                }
-            ]
+            "type": "CheckBox",
+            "name": "EnableStromGedacht",
+            "caption": "StromGedacht (TransnetBW, Netz-Signal, PLZ erforderlich)"
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableGSI",
+            "caption": "GrünstromIndex (Corrently, Öko-Signal, PLZ erforderlich)"
+        },
+        {
+            "type": "CheckBox",
+            "name": "EnableEnergyCharts",
+            "caption": "Energy-Charts Stromampel (Fraunhofer ISE, Öko-Signal, ganz Deutschland)"
         },
         {
             "type": "ValidationTextBox",
@@ -48,12 +44,17 @@
         {
             "code": 201,
             "icon": "error",
-            "caption": "Für diese Postleitzahl liegen keine Daten vor"
+            "caption": "Für diese Postleitzahl liegen bei keiner aktivierten Quelle Daten vor"
         },
         {
             "code": 202,
             "icon": "error",
-            "caption": "API nicht erreichbar oder ungültige Antwort"
+            "caption": "Keine aktivierte Quelle erreichbar – siehe Debug"
+        },
+        {
+            "code": 203,
+            "icon": "inactive",
+            "caption": "Bitte mindestens eine Datenquelle aktivieren"
         }
     ]
 }

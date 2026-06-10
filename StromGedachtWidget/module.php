@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 class StromGedachtWidget extends IPSModule
 {
-    private const SOURCE_STROMGEDACHT = 0;
-    private const SOURCE_GSI = 1;
-    private const SOURCE_ENERGYCHARTS = 2;
-
     // Instanz-Status
     private const STATUS_NO_ZIP = 104;
     private const STATUS_ZIP_UNKNOWN = 201;
     private const STATUS_API_ERROR = 202;
+    private const STATUS_NO_SOURCE = 203;
+
+    private const COLOR_GREY = '#9e9e9e';
 
     // Zustände laut StromGedacht API:
     // -1 = Supergrün, 1 = Grün, 2 = Gelb (veraltet), 3 = Orange, 4 = Rot
@@ -59,14 +58,16 @@ class StromGedachtWidget extends IPSModule
         -1 => 'Netzengpass – Verbrauch reduzieren',
         0  => 'Niedriger Anteil erneuerbarer Energien',
         1  => 'Durchschnittlicher Anteil erneuerbarer Energien',
-        2  => 'Hoher Anteil erneuerbarer Energien – Strom jetzt nutzen'
+        2  => 'Hoher Anteil erneuerbarer Energien'
     ];
 
     public function Create()
     {
         parent::Create();
 
-        $this->RegisterPropertyInteger('Source', self::SOURCE_STROMGEDACHT);
+        $this->RegisterPropertyBoolean('EnableStromGedacht', true);
+        $this->RegisterPropertyBoolean('EnableGSI', true);
+        $this->RegisterPropertyBoolean('EnableEnergyCharts', true);
         $this->RegisterPropertyString('ZipCode', '');
         $this->RegisterPropertyInteger('UpdateInterval', 300);
 
@@ -114,19 +115,26 @@ class StromGedachtWidget extends IPSModule
             return;
         }
 
-        $source = $this->ReadPropertyInteger('Source');
+        $sg = $this->ReadPropertyBoolean('EnableStromGedacht');
+        $gsi = $this->ReadPropertyBoolean('EnableGSI');
+        $ec = $this->ReadPropertyBoolean('EnableEnergyCharts');
 
-        // Variablen je Quelle pflegen (nicht benötigte werden entfernt)
-        $this->MaintainVariable('State', 'Ampel', VARIABLETYPE_INTEGER, 'SGW.State', 1, $source === self::SOURCE_STROMGEDACHT);
-        $this->MaintainVariable('GSI', 'GrünstromIndex', VARIABLETYPE_FLOAT, 'SGW.GSI', 1, $source === self::SOURCE_GSI);
-        $this->MaintainVariable('ECSignal', 'Stromampel', VARIABLETYPE_INTEGER, 'SGW.ECSignal', 1, $source === self::SOURCE_ENERGYCHARTS);
-        $this->MaintainVariable('ECShare', 'EE-Anteil', VARIABLETYPE_FLOAT, 'SGW.Percent', 2, $source === self::SOURCE_ENERGYCHARTS);
-        $this->MaintainVariable('Text', 'Status Text', VARIABLETYPE_STRING, '', 3, true);
-        $this->MaintainVariable('Updated', 'Aktualisiert', VARIABLETYPE_INTEGER, '~UnixTimestamp', 4, true);
-        $this->MaintainVariable('Widget', 'Anzeige', VARIABLETYPE_STRING, '~HTMLBox', 5, true);
+        // Variablen je aktivierter Quelle pflegen (nicht benötigte werden entfernt)
+        $this->MaintainVariable('State', 'Ampel', VARIABLETYPE_INTEGER, 'SGW.State', 1, $sg);
+        $this->MaintainVariable('Text', 'Status Text', VARIABLETYPE_STRING, '', 2, $sg);
+        $this->MaintainVariable('GSI', 'GrünstromIndex', VARIABLETYPE_FLOAT, 'SGW.GSI', 3, $gsi);
+        $this->MaintainVariable('ECSignal', 'Stromampel', VARIABLETYPE_INTEGER, 'SGW.ECSignal', 4, $ec);
+        $this->MaintainVariable('ECShare', 'EE-Anteil', VARIABLETYPE_FLOAT, 'SGW.Percent', 5, $ec);
+        $this->MaintainVariable('Updated', 'Aktualisiert', VARIABLETYPE_INTEGER, '~UnixTimestamp', 6, true);
+        $this->MaintainVariable('Widget', 'Anzeige', VARIABLETYPE_STRING, '~HTMLBox', 7, true);
 
-        $needsZip = $source !== self::SOURCE_ENERGYCHARTS;
-        if ($needsZip && trim($this->ReadPropertyString('ZipCode')) === '') {
+        if (!$sg && !$gsi && !$ec) {
+            $this->SetStatus(self::STATUS_NO_SOURCE);
+            $this->SetTimerInterval('UpdateTimer', 0);
+            return;
+        }
+
+        if (($sg || $gsi) && trim($this->ReadPropertyString('ZipCode')) === '') {
             $this->SetStatus(self::STATUS_NO_ZIP);
             $this->SetTimerInterval('UpdateTimer', 0);
             return;
@@ -146,23 +154,49 @@ class StromGedachtWidget extends IPSModule
 
     public function Update()
     {
-        switch ($this->ReadPropertyInteger('Source')) {
-            case self::SOURCE_GSI:
-                $this->UpdateGSI();
-                break;
-            case self::SOURCE_ENERGYCHARTS:
-                $this->UpdateEnergyCharts();
-                break;
-            default:
-                $this->UpdateStromGedacht();
+        $zip = trim($this->ReadPropertyString('ZipCode'));
+
+        $columns = [];
+        $ok = 0;
+        $zipUnknown = 0;
+        $failed = 0;
+
+        if ($this->ReadPropertyBoolean('EnableStromGedacht')) {
+            $columns[] = $this->FetchStromGedacht($zip, $ok, $zipUnknown, $failed);
         }
+        if ($this->ReadPropertyBoolean('EnableGSI')) {
+            $columns[] = $this->FetchGSI($zip, $ok, $zipUnknown, $failed);
+        }
+        if ($this->ReadPropertyBoolean('EnableEnergyCharts')) {
+            $columns[] = $this->FetchEnergyCharts($ok, $failed);
+        }
+
+        if (count($columns) === 0) {
+            return;
+        }
+
+        if ($ok > 0) {
+            // Mindestens eine Quelle liefert: Instanz bleibt aktiv,
+            // ausgefallene Quellen sind im Widget als "Keine Daten" sichtbar
+            $this->SetStatus(IS_ACTIVE);
+            $this->SetValue('Updated', time());
+        } elseif ($failed === 0 && $zipUnknown > 0) {
+            $this->SetStatus(self::STATUS_ZIP_UNKNOWN);
+        } else {
+            $this->SetStatus(self::STATUS_API_ERROR);
+        }
+
+        $this->RenderWidget($columns);
     }
 
-    private function UpdateStromGedacht()
+    private function FetchStromGedacht(string $zip, int &$ok, int &$zipUnknown, int &$failed): array
     {
-        $zip = trim($this->ReadPropertyString('ZipCode'));
+        $column = ['title' => 'StromGedacht', 'color' => self::COLOR_GREY, 'label' => 'Keine Daten', 'text' => ''];
+
         if ($zip === '') {
-            return;
+            $column['text'] = 'Postleitzahl fehlt';
+            $zipUnknown++;
+            return $column;
         }
 
         [$code, $body] = $this->HttpGet('https://api.stromgedacht.de/v1/now?zip=' . urlencode($zip));
@@ -170,52 +204,66 @@ class StromGedachtWidget extends IPSModule
         // Die API antwortet mit 400 + Hinweistext, wenn sie die PLZ nicht
         // kennt bzw. keine Daten für das PLZ-Gebiet vorliegen
         if ($code === 400 && stripos((string) $body, 'no data') !== false) {
-            $this->ReportZipUnknown($zip);
-            return;
+            $message = 'Für die Postleitzahl ' . $zip . ' liegen keine Daten vor';
+            $this->SendDebug('StromGedacht', $message, 0);
+            $this->SetValue('Text', $message);
+            $column['text'] = $message;
+            $zipUnknown++;
+            return $column;
         }
 
         $data = $this->DecodeJson($code, $body);
         if ($data === null || !isset($data['state'])) {
-            $this->ReportApiError();
-            return;
+            $this->SendDebug('StromGedacht', 'API nicht erreichbar oder ungültige Antwort', 0);
+            $column['text'] = 'API nicht erreichbar';
+            $failed++;
+            return $column;
         }
 
         $state = (int) $data['state'];
         $text = self::SG_TEXTS[$state] ?? 'Unbekannter Zustand (' . $state . ')';
 
-        $this->SetStatus(IS_ACTIVE);
         $this->SetValue('State', $state);
         $this->SetValue('Text', $text);
-        $this->SetValue('Updated', time());
 
-        $this->RenderWidget(
-            self::SG_COLORS[$state] ?? '#9e9e9e',
-            self::SG_LABELS[$state] ?? 'Unbekannt',
-            $text,
-            'StromGedacht'
-        );
+        $ok++;
+
+        return [
+            'title' => 'StromGedacht',
+            'color' => self::SG_COLORS[$state] ?? self::COLOR_GREY,
+            'label' => self::SG_LABELS[$state] ?? 'Unbekannt',
+            'text'  => $text
+        ];
     }
 
-    private function UpdateGSI()
+    private function FetchGSI(string $zip, int &$ok, int &$zipUnknown, int &$failed): array
     {
-        $zip = trim($this->ReadPropertyString('ZipCode'));
+        $column = ['title' => 'GrünstromIndex', 'color' => self::COLOR_GREY, 'label' => 'Keine Daten', 'text' => ''];
+
         if ($zip === '') {
-            return;
+            $column['text'] = 'Postleitzahl fehlt';
+            $zipUnknown++;
+            return $column;
         }
 
         [$code, $body] = $this->HttpGet('https://api.corrently.io/v2.0/gsi/prediction?zip=' . urlencode($zip));
 
         $data = $this->DecodeJson($code, $body);
         if ($data === null) {
-            $this->ReportApiError();
-            return;
+            $this->SendDebug('GrünstromIndex', 'API nicht erreichbar oder ungültige Antwort', 0);
+            $column['text'] = 'API nicht erreichbar';
+            $failed++;
+            return $column;
         }
 
         // Bei unbekannter PLZ liefert die API ein leeres forecast-Array
         $forecast = $data['forecast'] ?? [];
         if (count($forecast) === 0) {
-            $this->ReportZipUnknown($zip);
-            return;
+            $message = 'Für die Postleitzahl ' . $zip . ' liegen keine Daten vor';
+            $this->SendDebug('GrünstromIndex', $message, 0);
+            $column['text'] = $message;
+            $zipUnknown++;
+            return $column;
         }
 
         // Eintrag suchen, dessen Zeitfenster jetzt abdeckt (sonst den ersten)
@@ -230,12 +278,12 @@ class StromGedachtWidget extends IPSModule
             }
         }
 
-        $gsi = (float) ($current['gsi'] ?? 0);
+        $gsiValue = (float) ($current['gsi'] ?? 0);
 
-        if ($gsi >= 66) {
+        if ($gsiValue >= 66) {
             $color = '#00c853';
-            $text = 'Hoher Grünstrom-Anteil in der Region – Strom jetzt nutzen';
-        } elseif ($gsi >= 33) {
+            $text = 'Hoher Grünstrom-Anteil in der Region';
+        } elseif ($gsiValue >= 33) {
             $color = '#ffd600';
             $text = 'Durchschnittlicher Grünstrom-Anteil in der Region';
         } else {
@@ -243,22 +291,30 @@ class StromGedachtWidget extends IPSModule
             $text = 'Niedriger Grünstrom-Anteil in der Region';
         }
 
-        $this->SetStatus(IS_ACTIVE);
-        $this->SetValue('GSI', $gsi);
-        $this->SetValue('Text', $text);
-        $this->SetValue('Updated', time());
+        $this->SetValue('GSI', $gsiValue);
 
-        $this->RenderWidget($color, number_format($gsi, 0) . ' %', $text, 'GrünstromIndex');
+        $ok++;
+
+        return [
+            'title' => 'GrünstromIndex',
+            'color' => $color,
+            'label' => number_format($gsiValue, 0) . ' %',
+            'text'  => $text
+        ];
     }
 
-    private function UpdateEnergyCharts()
+    private function FetchEnergyCharts(int &$ok, int &$failed): array
     {
+        $column = ['title' => 'Energy-Charts', 'color' => self::COLOR_GREY, 'label' => 'Keine Daten', 'text' => ''];
+
         [$code, $body] = $this->HttpGet('https://api.energy-charts.info/signal?country=de');
 
         $data = $this->DecodeJson($code, $body);
         if ($data === null || !isset($data['unix_seconds'], $data['signal'])) {
-            $this->ReportApiError();
-            return;
+            $this->SendDebug('Energy-Charts', 'API nicht erreichbar oder ungültige Antwort', 0);
+            $column['text'] = 'API nicht erreichbar';
+            $failed++;
+            return $column;
         }
 
         // Letzten 15-Minuten-Slot suchen, der bereits begonnen hat
@@ -273,35 +329,18 @@ class StromGedachtWidget extends IPSModule
 
         $signal = (int) ($data['signal'][$index] ?? 0);
         $share = (float) ($data['share'][$index] ?? 0);
-        $text = self::EC_TEXTS[$signal] ?? 'Unbekanntes Signal (' . $signal . ')';
 
-        $this->SetStatus(IS_ACTIVE);
         $this->SetValue('ECSignal', $signal);
         $this->SetValue('ECShare', $share);
-        $this->SetValue('Text', $text);
-        $this->SetValue('Updated', time());
 
-        $this->RenderWidget(
-            self::EC_COLORS[$signal] ?? '#9e9e9e',
-            self::EC_LABELS[$signal] ?? 'Unbekannt',
-            $text . ' (EE-Anteil: ' . number_format($share, 1, ',', '.') . ' %)',
-            'Energy-Charts (Deutschland)'
-        );
-    }
+        $ok++;
 
-    private function ReportZipUnknown(string $zip)
-    {
-        $message = 'Für die Postleitzahl ' . $zip . ' liegen keine Daten vor';
-        $this->SendDebug('Update', $message, 0);
-        $this->SetStatus(self::STATUS_ZIP_UNKNOWN);
-        $this->SetValue('Text', $message);
-        $this->RenderWidget('#9e9e9e', 'Keine Daten', $message, '');
-    }
-
-    private function ReportApiError()
-    {
-        $this->SendDebug('Update', 'API nicht erreichbar oder ungültige Antwort', 0);
-        $this->SetStatus(self::STATUS_API_ERROR);
+        return [
+            'title' => 'Energy-Charts',
+            'color' => self::EC_COLORS[$signal] ?? self::COLOR_GREY,
+            'label' => self::EC_LABELS[$signal] ?? 'Unbekannt',
+            'text'  => (self::EC_TEXTS[$signal] ?? 'Unbekanntes Signal') . ' (EE-Anteil: ' . number_format($share, 1, ',', '.') . ' %)'
+        ];
     }
 
     // Liefert [HTTP-Code, Body]; Code 0 = Verbindungsfehler
@@ -310,10 +349,15 @@ class StromGedachtWidget extends IPSModule
         [$code, $body] = $this->TryHttpGet($url, false);
 
         // PHP-Streams haben keinen IPv6→IPv4-Fallback; bei Verbindungsfehler
-        // (z. B. nicht erreichbarer IPv6-Endpunkt) erzwungen über IPv4 wiederholen
-        if ($body === null) {
+        // (z. B. nicht erreichbarer IPv6-Endpunkt) erzwungen über IPv4 wiederholen.
+        // Ein leerer Body trotz Statuscode bedeutet eine vorzeitig beendete
+        // Verbindung und wird ebenfalls als Fehler behandelt
+        if ($body === null || trim($body) === '') {
             $this->SendDebug('API', 'Verbindungsfehler, wiederhole über IPv4: ' . $url, 0);
             [$code, $body] = $this->TryHttpGet($url, true);
+            if ($body !== null && trim($body) === '') {
+                $body = null;
+            }
         }
 
         $this->SendDebug('API', 'HTTP ' . $code . ' ' . $url, 0);
@@ -362,28 +406,37 @@ class StromGedachtWidget extends IPSModule
         return is_array($data) ? $data : null;
     }
 
-    private function RenderWidget(string $color, string $label, string $text, string $source)
+    private function RenderWidget(array $columns)
     {
-        $html = '
-        <div style="text-align:center; font-family:Arial; padding:20px;">
-            <div style="
-                width:80px;
-                height:80px;
-                border-radius:50%;
-                margin:0 auto 15px auto;
-                background:' . $color . ';
-                box-shadow:0 0 20px ' . $color . ';
-            "></div>
-            <div style="font-size:22px; font-weight:bold; color:' . $color . '; margin-bottom:10px;">
-                ' . htmlspecialchars($label) . '
-            </div>
-            <div style="font-size:14px; margin-bottom:10px;">
-                ' . htmlspecialchars($text) . '
-            </div>
-            <div style="font-size:11px; color:gray;">
-                ' . ($source !== '' ? htmlspecialchars($source) . ' &middot; ' : '') . date('d.m.Y H:i:s') . '
-            </div>
-        </div>';
+        $html = '<div style="font-family:Arial; padding:16px; text-align:center;">';
+        $html .= '<div style="display:flex; justify-content:center; gap:28px; flex-wrap:wrap;">';
+
+        foreach ($columns as $column) {
+            $html .= '
+            <div style="min-width:150px; max-width:200px;">
+                <div style="font-size:12px; color:gray; margin-bottom:10px;">
+                    ' . htmlspecialchars($column['title']) . '
+                </div>
+                <div style="
+                    width:60px;
+                    height:60px;
+                    border-radius:50%;
+                    margin:0 auto 12px auto;
+                    background:' . $column['color'] . ';
+                    box-shadow:0 0 16px ' . $column['color'] . ';
+                "></div>
+                <div style="font-size:18px; font-weight:bold; color:' . $column['color'] . '; margin-bottom:8px;">
+                    ' . htmlspecialchars($column['label']) . '
+                </div>
+                <div style="font-size:12px;">
+                    ' . htmlspecialchars($column['text']) . '
+                </div>
+            </div>';
+        }
+
+        $html .= '</div>';
+        $html .= '<div style="font-size:11px; color:gray; margin-top:14px;">' . date('d.m.Y H:i:s') . '</div>';
+        $html .= '</div>';
 
         $this->SetValue('Widget', $html);
     }
