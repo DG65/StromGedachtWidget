@@ -18,7 +18,7 @@ Die Werte entsprechen 1:1 der StromGedacht-API und werden unverändert in der Va
 
 ## Voraussetzungen
 
-- IP-Symcon ab Version 8.0
+- IP-Symcon ab Version 9.0
 - Internetzugriff auf `api.stromgedacht.de`
 - Eine Postleitzahl im Netzgebiet der TransnetBW (Baden-Württemberg)
 
