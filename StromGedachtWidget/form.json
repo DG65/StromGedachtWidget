@@ -1,9 +1,28 @@
 {
     "elements": [
         {
+            "type": "Select",
+            "name": "Source",
+            "caption": "Datenquelle",
+            "options": [
+                {
+                    "caption": "StromGedacht (TransnetBW, Netz-Signal, PLZ erforderlich)",
+                    "value": 0
+                },
+                {
+                    "caption": "GrünstromIndex (Corrently, Öko-Signal, PLZ erforderlich)",
+                    "value": 1
+                },
+                {
+                    "caption": "Energy-Charts Stromampel (Fraunhofer ISE, Öko-Signal, ganz Deutschland)",
+                    "value": 2
+                }
+            ]
+        },
+        {
             "type": "ValidationTextBox",
             "name": "ZipCode",
-            "caption": "Postleitzahl"
+            "caption": "Postleitzahl (für StromGedacht und GrünstromIndex)"
         },
         {
             "type": "NumberSpinner",
@@ -25,6 +44,16 @@
             "code": 104,
             "icon": "inactive",
             "caption": "Bitte Postleitzahl konfigurieren"
+        },
+        {
+            "code": 201,
+            "icon": "error",
+            "caption": "Für diese Postleitzahl liegen keine Daten vor"
+        },
+        {
+            "code": 202,
+            "icon": "error",
+            "caption": "API nicht erreichbar oder ungültige Antwort"
         }
     ]
 }
