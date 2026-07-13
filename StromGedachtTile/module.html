@@ -144,6 +144,7 @@
             // Teil-Nachrichten für den Regel-Editor (kein vollständiges Kachel-Update)
             if (d.editor !== undefined) { ED.data = d.editor; edOpenNow(); return; }
             if (d.targetOpts !== undefined) { edApplyTargetOpts(d.targetOpts); return; }
+            if (d.condOpts !== undefined) { edApplyCondOpts(d.condOpts); return; }
 
             var root = document.documentElement.style;
             function applyVar(name, val) { if (val) { root.setProperty(name, val); } else { root.removeProperty(name); } }
@@ -319,6 +320,13 @@
             op.value = cond.Op || 'true';
             box.appendChild(op);
 
+            // Vergleichswert: freies Textfeld, wird bei Datenpunkten mit bekannten
+            // Profilwerten (z. B. StromGedacht-Ampel) durch ein Dropdown ersetzt.
+            var cmpSel = document.createElement('select');
+            cmpSel.className = 'ed-cond-cmpsel';
+            cmpSel.style.display = 'none';
+            box.appendChild(cmpSel);
+
             var cmp = document.createElement('input');
             cmp.type = 'text';
             cmp.className = 'ed-cond-cmp';
@@ -326,11 +334,55 @@
             cmp.value = cond.Compare || '';
             box.appendChild(cmp);
 
-            function syncCmp() { cmp.style.display = (NUM_OPS.indexOf(op.value) >= 0) ? '' : 'none'; }
-            op.onchange = syncCmp;
-            syncCmp();
+            op.onchange = function () { updateCmpVisibility(box); };
+            src.onchange = function () {
+                // Alte Auswahl verwerfen, bis die Profilwerte der neuen Quelle eintreffen
+                cmpSel.textContent = '';
+                updateCmpVisibility(box);
+                requestAction('condOpts', src.value);
+            };
+            updateCmpVisibility(box);
+            if (cond.Source) requestAction('condOpts', cond.Source);
 
             return box;
+        }
+
+        /** Zeigt je nach Bedingung entweder das Vergleichswert-Textfeld oder -Dropdown (falls Profilwerte geladen sind). */
+        function updateCmpVisibility(box) {
+            var op = box.querySelector('.ed-cond-op').value;
+            var inp = box.querySelector('.ed-cond-cmp');
+            var sel = box.querySelector('.ed-cond-cmpsel');
+            var showCompare = NUM_OPS.indexOf(op) >= 0;
+            if (!showCompare) {
+                inp.style.display = 'none';
+                sel.style.display = 'none';
+                return;
+            }
+            var hasOpts = sel.options.length > 0;
+            inp.style.display = hasOpts ? 'none' : '';
+            sel.style.display = hasOpts ? '' : 'none';
+        }
+
+        /** Wendet die Profilwerte einer Wenn-Quelle auf alle passenden Bedingungszeilen an. */
+        function edApplyCondOpts(payload) {
+            if (!payload) return;
+            document.querySelectorAll('#ed-conditions .ed-cond-box').forEach(function (box) {
+                if (box.querySelector('.ed-cond-src').value !== payload.source) return;
+                var sel = box.querySelector('.ed-cond-cmpsel');
+                var inp = box.querySelector('.ed-cond-cmp');
+                var opts = payload.options || [];
+                sel.textContent = '';
+                opts.forEach(function (o) {
+                    var e = document.createElement('option');
+                    e.value = o.v; e.textContent = o.c + ' (' + o.v + ')';
+                    sel.appendChild(e);
+                });
+                if (opts.length && inp.value !== '') {
+                    var match = opts.find(function (o) { return String(o.v) === String(inp.value); });
+                    if (match) sel.value = String(match.v);
+                }
+                updateCmpVisibility(box);
+            });
         }
 
         function edRefreshConditionTags() {
@@ -437,10 +489,12 @@
             document.querySelectorAll('#ed-conditions .ed-cond-box').forEach(function (box) {
                 var src = box.querySelector('.ed-cond-src').value;
                 if (!src) return;
+                var cmpSel = box.querySelector('.ed-cond-cmpsel');
+                var cmpVal = (cmpSel.style.display !== 'none') ? cmpSel.value : box.querySelector('.ed-cond-cmp').value;
                 conditions.push({
                     Source: src,
                     Op: box.querySelector('.ed-cond-op').value,
-                    Compare: box.querySelector('.ed-cond-cmp').value
+                    Compare: cmpVal
                 });
             });
             if (!conditions.length) return;
