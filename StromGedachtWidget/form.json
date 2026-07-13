@@ -207,6 +207,22 @@
                 {
                     "type": "Label",
                     "caption": "'Vergleichswert' nur bei =, ≠, >, ≥, <, ≤ nötig; 'Wert' nur bei Aktion 'Wert setzen'. Zahlen mit Punkt oder Komma. Die Zielvariable wird per Aktion geschaltet (wie ein Klick in der Visualisierung); Variablen ohne Aktion werden direkt beschrieben."
+                },
+                {
+                    "type": "Label",
+                    "caption": "Werte zum Nachschlagen (die Kachel bietet diese als Dropdown an, hier nur als Freitext möglich):"
+                },
+                {
+                    "type": "Label",
+                    "caption": "StromGedacht-Ampel: -1 Supergrün · 1 Grün · 2 Gelb · 3 Orange · 4 Rot"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Energy-Charts-Signal: -1 Rot (Netzengpass) · 0 Rot · 1 Gelb · 2 Grün"
+                },
+                {
+                    "type": "Label",
+                    "caption": "GrünstromIndex / Energy-Charts EE-Anteil: 0–100 (Prozent, keine festen Stufen)"
                 }
             ]
         }
