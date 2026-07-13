@@ -139,11 +139,7 @@ Im Debug-Fenster der Instanz prüfen: Dort werden HTTP-Code und API-Antwort jede
 
 ## Änderungen
 
-**1.4.0** (2026-07-13)
-- Neues eigenständiges Kachel-Modul **StromGedachtTile** (grafisch einstellbare native Kachel fürs WebFront, siehe [Kachel](#kachel))
-- **Automationen (Wenn → Dann)** im Instanzformular und in der Kachel (siehe [Automationen](#automationen-wenn--dann))
-- Dokumentations-Panel „📖 Dokumentation & Hilfe" im Instanzformular
-- Bewertungs-Hinweis mit Link zur [Symcon-Community](https://community.symcon.de/t/modul-strom-gedacht-ampel-widget/143960) (einmalig, ausblendbar)
+Siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Lizenz
 
