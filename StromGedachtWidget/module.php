@@ -70,6 +70,10 @@ class StromGedachtWidget extends IPSModule
         $this->RegisterPropertyBoolean('EnableEnergyCharts', true);
         $this->RegisterPropertyString('ZipCode', '');
         $this->RegisterPropertyInteger('UpdateInterval', 300);
+        $this->RegisterPropertyString('DataActions', '[]');
+
+        $this->RegisterAttributeString('RuleState', '{}');
+        $this->RegisterAttributeBoolean('ReviewHintDismissed', false);
 
         // Profile bewusst getrennt je Datenquelle
         if (!IPS_VariableProfileExists('SGW.State')) {
@@ -128,6 +132,14 @@ class StromGedachtWidget extends IPSModule
         $this->MaintainVariable('Updated', 'Aktualisiert', VARIABLETYPE_INTEGER, '~UnixTimestamp', 6, true);
         $this->MaintainVariable('Widget', 'Anzeige', VARIABLETYPE_STRING, '~HTMLBox', 7, true);
 
+        // Baseline ohne Auslösen: verhindert Fehlauslösung einer Regel direkt nach
+        // dem Übernehmen, falls ihre Bedingung zufällig schon erfüllt ist
+        try {
+            $this->evaluateDataActions(false);
+        } catch (Throwable $e) {
+            // ignorieren
+        }
+
         if (!$sg && !$gsi && !$ec) {
             $this->SetStatus(self::STATUS_NO_SOURCE);
             $this->SetTimerInterval('UpdateTimer', 0);
@@ -150,6 +162,69 @@ class StromGedachtWidget extends IPSModule
         if ($Message === IPS_KERNELSTARTED) {
             $this->ApplyChanges();
         }
+    }
+
+    public function GetConfigurationForm()
+    {
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        if (!is_array($form)) {
+            $form = ['elements' => [], 'actions' => [], 'status' => []];
+        }
+
+        $sourceOptions = $this->getAutomationSourceOptions();
+
+        // Datenpunkt-Optionen der Automationsliste befüllen (liegt in einem ExpansionPanel)
+        $patch = function (array &$elements) use (&$patch, $sourceOptions) {
+            foreach ($elements as &$element) {
+                if (!is_array($element)) {
+                    continue;
+                }
+                if (($element['name'] ?? '') === 'DataActions' && isset($element['columns']) && is_array($element['columns'])) {
+                    foreach ($element['columns'] as &$col) {
+                        if (($col['name'] ?? '') === 'Source') {
+                            $col['edit']['options'] = $sourceOptions;
+                        }
+                    }
+                    unset($col);
+                }
+                if (isset($element['items']) && is_array($element['items'])) {
+                    $patch($element['items']);
+                }
+            }
+            unset($element);
+        };
+        $patch($form['elements']);
+
+        // Einmaliger Feedback-Hinweis: erscheint, bis er per Button ausgeblendet wird
+        if (!$this->ReadAttributeBoolean('ReviewHintDismissed')) {
+            $form['elements'][] = [
+                'type'  => 'RowLayout',
+                'name'  => 'ReviewHint',
+                'items' => [
+                    [
+                        'type'    => 'Label',
+                        'caption' => '⭐ Gefällt dir dieses Modul? Über eine Bewertung im Module Store oder eine Rückmeldung in der Symcon-Community freue ich mich!'
+                    ],
+                    [
+                        'type'    => 'Label',
+                        'link'    => true,
+                        'caption' => 'https://community.symcon.de/t/modul-strom-gedacht-ampel-widget/143960'
+                    ],
+                    [
+                        'type'    => 'Button',
+                        'caption' => 'Nicht mehr anzeigen',
+                        'onClick' => 'SGW_DismissReviewHint($id);'
+                    ]
+                ]
+            ];
+        }
+
+        return json_encode($form);
+    }
+
+    public function DismissReviewHint(): void
+    {
+        $this->WriteAttributeBoolean('ReviewHintDismissed', true);
     }
 
     public function Update()
@@ -187,6 +262,12 @@ class StromGedachtWidget extends IPSModule
         }
 
         $this->RenderWidget($columns);
+
+        try {
+            $this->evaluateDataActions();
+        } catch (Throwable $e) {
+            $this->SendDebug('Automation', $e->getMessage(), 0);
+        }
     }
 
     private function FetchStromGedacht(string $zip, int &$ok, int &$zipUnknown, int &$failed): array
@@ -439,5 +520,476 @@ class StromGedachtWidget extends IPSModule
         $html .= '</div>';
 
         $this->SetValue('Widget', $html);
+    }
+
+    // ---------------------------------------------------------------------
+    // Automationen (Wenn -> Dann): generische Regeln über die Ampel-/Signal-Werte
+    // dieser Instanz, Ziel ist eine beliebige schaltbare Variable im System.
+    // ---------------------------------------------------------------------
+
+    /** Datenpunkte, die als Wenn-Bedingung wählbar sind (nur aktivierte Quellen). */
+    private function getAutomationSourceOptions(): array
+    {
+        $options = [];
+        if ($this->ReadPropertyBoolean('EnableStromGedacht')) {
+            $options[] = ['caption' => 'StromGedacht-Ampel', 'value' => 'State'];
+        }
+        if ($this->ReadPropertyBoolean('EnableGSI')) {
+            $options[] = ['caption' => 'GrünstromIndex', 'value' => 'GSI'];
+        }
+        if ($this->ReadPropertyBoolean('EnableEnergyCharts')) {
+            $options[] = ['caption' => 'Energy-Charts-Signal', 'value' => 'ECSignal'];
+            $options[] = ['caption' => 'Energy-Charts EE-Anteil', 'value' => 'ECShare'];
+        }
+        return $options;
+    }
+
+    /** Setzt Zielvariable per Aktion (wenn vorhanden) oder direkt per SetValue. */
+    private function applyActionToVariable(int $vid, string $action, string $rawValue, string $context): bool
+    {
+        if ($vid <= 0 || !IPS_VariableExists($vid)) {
+            $this->SendDebug('Aktion', sprintf('%s: Zielvariable #%d existiert nicht', $context, $vid), 0);
+            return false;
+        }
+
+        $var = IPS_GetVariable($vid);
+        switch ($action) {
+            case 'off':    $value = false; break;
+            case 'toggle': $value = !(bool) GetValue($vid); break;
+            case 'value':  $value = $this->castToVariableType($rawValue, (int) $var['VariableType']); break;
+            case 'on':
+            default:       $value = true; break;
+        }
+        // Bool-Aktionen auf Nicht-Bool-Variablen sinnvoll abbilden (0/1)
+        if (is_bool($value) && (int) $var['VariableType'] !== VARIABLETYPE_BOOLEAN) {
+            $value = $this->castToVariableType($value ? '1' : '0', (int) $var['VariableType']);
+        }
+
+        $hasAction = ((int) $var['VariableAction'] > 0 || (int) $var['VariableCustomAction'] > 0);
+        $ok = $hasAction ? @RequestAction($vid, $value) : @SetValue($vid, $value);
+
+        $this->SendDebug('Aktion', sprintf(
+            '%s -> %s #%d = %s (%s)',
+            $context, $hasAction ? 'RequestAction' : 'SetValue',
+            $vid, json_encode($value), ($ok === false) ? 'FEHLER' : 'ok'
+        ), 0);
+        if ($ok === false) {
+            $this->LogMessage(sprintf('Aktion "%s" auf Variable #%d fehlgeschlagen', $context, $vid), KL_WARNING);
+        }
+        return $ok !== false;
+    }
+
+    /** Wandelt den Regel-Wert (Text) in den Typ der Zielvariable um. */
+    private function castToVariableType(string $raw, int $type)
+    {
+        $raw = trim($raw);
+        switch ($type) {
+            case VARIABLETYPE_BOOLEAN:
+                return in_array(strtolower($raw), ['1', 'true', 'ein', 'on', 'ja', 'an'], true);
+            case VARIABLETYPE_INTEGER:
+                return (int) $raw;
+            case VARIABLETYPE_FLOAT:
+                return (float) str_replace(',', '.', $raw);
+            default:
+                return $raw;
+        }
+    }
+
+    /**
+     * Liest die Bedingungsliste einer Regel, egal ob im neuen Mehrfach-Format
+     * ({Conditions:[{Source,Op,Compare},...]}) oder im alten flachen Format
+     * (Source/Op/Compare direkt in der Regel) gespeichert. Alle Bedingungen
+     * werden mit UND verknüpft ausgewertet.
+     */
+    private function normalizeRuleConditions(array $rule): array
+    {
+        if (isset($rule['Conditions']) && is_array($rule['Conditions'])) {
+            $out = [];
+            foreach ($rule['Conditions'] as $c) {
+                if (!is_array($c)) {
+                    continue;
+                }
+                $src = (string) ($c['Source'] ?? '');
+                if ($src === '') {
+                    continue;
+                }
+                $out[] = ['Source' => $src, 'Op' => (string) ($c['Op'] ?? 'true'), 'Compare' => (string) ($c['Compare'] ?? '')];
+            }
+            return $out;
+        }
+        $src = (string) ($rule['Source'] ?? '');
+        if ($src === '') {
+            return [];
+        }
+        return [['Source' => $src, 'Op' => (string) ($rule['Op'] ?? 'true'), 'Compare' => (string) ($rule['Compare'] ?? '')]];
+    }
+
+    /**
+     * Wertet alle Wenn->Dann-Regeln aus. Flankengesteuert: eine Regel feuert nur,
+     * wenn ihre Bedingung von unerfüllt auf erfüllt wechselt (bzw. bei 'change',
+     * wenn sich der Wert ändert) - nicht bei jeder Datenmeldung erneut.
+     * $fire=false aktualisiert nur den Zustand ohne auszulösen (Baseline nach
+     * Übernehmen, verhindert Fehlauslösungen durch alte Flanken).
+     */
+    private function evaluateDataActions(bool $fire = true): void
+    {
+        $rules = json_decode((string) $this->ReadPropertyString('DataActions'), true);
+        if (!is_array($rules)) {
+            $rules = [];
+        }
+        $state = json_decode($this->ReadAttributeString('RuleState'), true);
+        if (!is_array($state)) {
+            $state = [];
+        }
+        $stateChanged = false;
+
+        foreach ($rules as $i => $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $key = (string) $i;
+
+            $conditions = $this->normalizeRuleConditions($rule);
+            if (count($conditions) === 0) {
+                continue;
+            }
+
+            $prevState = $state[$key] ?? null;
+            if (is_array($prevState) && !array_key_exists('overall', $prevState)) {
+                $prevState = null;
+            }
+            $prevVals = is_array($prevState['vals'] ?? null) ? $prevState['vals'] : [];
+
+            $newVals = [];
+            $allSatisfied = true;
+            $hasMomentary = false;
+            $sourcesValid = true;
+
+            foreach ($conditions as $ci => $cond) {
+                $srcIdent = $cond['Source'];
+                $op = $cond['Op'];
+
+                $vid = @IPS_GetObjectIDByIdent($srcIdent, $this->InstanceID);
+                if ($vid <= 0) {
+                    $sourcesValid = false;
+                    break;
+                }
+                $cur = GetValue($vid);
+                $serial = json_encode($cur);
+                $newVals[$ci] = $serial;
+
+                if ($op === 'change') {
+                    $hasMomentary = true;
+                    $changed = array_key_exists($ci, $prevVals) && ($prevVals[$ci] !== $serial);
+                    if (!$changed) {
+                        $allSatisfied = false;
+                    }
+                } elseif (!$this->evalRuleCondition($cur, $op, $cond['Compare'])) {
+                    $allSatisfied = false;
+                }
+            }
+
+            if (!$sourcesValid) {
+                continue; // eine der Quellen existiert (aktuell) nicht
+            }
+
+            if ($hasMomentary) {
+                $fireNow = $allSatisfied;
+            } else {
+                $prevOverall = (bool) ($prevState['overall'] ?? false);
+                $fireNow = ($prevState !== null) && !$prevOverall && $allSatisfied;
+            }
+
+            $newState = ['overall' => $allSatisfied, 'vals' => $newVals];
+            if ($prevState === null || ($prevState['overall'] ?? null) !== $allSatisfied || ($prevState['vals'] ?? null) !== $newVals) {
+                $state[$key] = $newState;
+                $stateChanged = true;
+            }
+
+            if ($fire && $fireNow && (bool) ($rule['Active'] ?? true)) {
+                $this->applyActionToVariable(
+                    (int) ($rule['Target'] ?? 0),
+                    (string) ($rule['Action'] ?? 'on'),
+                    (string) ($rule['Value'] ?? ''),
+                    'Automation ' . $this->describeDataAction($rule)
+                );
+            }
+        }
+
+        foreach (array_keys($state) as $k) {
+            if (!isset($rules[(int) $k])) {
+                unset($state[$k]);
+                $stateChanged = true;
+            }
+        }
+        if ($stateChanged) {
+            $this->WriteAttributeString('RuleState', json_encode($state));
+        }
+    }
+
+    /** Prüft, ob der aktuelle Wert die Bedingung erfüllt. */
+    private function evalRuleCondition($cur, string $op, string $cmp): bool
+    {
+        switch ($op) {
+            case 'true':   return (bool) $cur === true;
+            case 'false':  return (bool) $cur === false;
+            case 'change': return false; // Sonderfall, wird über den Wertvergleich behandelt
+        }
+
+        $cmp = trim($cmp);
+        if (is_bool($cur)) {
+            $cur = $cur ? 1 : 0;
+        }
+        $numeric = is_numeric($cur) && is_numeric(str_replace(',', '.', $cmp));
+        if ($numeric) {
+            $a = (float) $cur;
+            $b = (float) str_replace(',', '.', $cmp);
+        } else {
+            $a = (string) $cur;
+            $b = $cmp;
+        }
+
+        switch ($op) {
+            case 'eq': return $numeric ? (abs($a - $b) < 1e-9) : (strcasecmp($a, $b) === 0);
+            case 'ne': return $numeric ? (abs($a - $b) >= 1e-9) : (strcasecmp($a, $b) !== 0);
+            case 'gt': return $numeric && $a > $b;
+            case 'ge': return $numeric && $a >= $b;
+            case 'lt': return $numeric && $a < $b;
+            case 'le': return $numeric && $a <= $b;
+        }
+        return false;
+    }
+
+    /** Menschenlesbare Beschreibung einer einzelnen Bedingung, z. B. „StromGedacht-Ampel = 4". */
+    private function describeCondition(array $cond): string
+    {
+        $opText = [
+            'true' => 'wird EIN', 'false' => 'wird AUS', 'change' => 'ändert sich',
+            'eq' => '=', 'ne' => '≠', 'gt' => '>', 'ge' => '≥', 'lt' => '<', 'le' => '≤'
+        ];
+
+        $srcIdent = (string) ($cond['Source'] ?? '');
+        $srcName = $srcIdent;
+        foreach ($this->getAutomationSourceOptions() as $o) {
+            if ($o['value'] === $srcIdent) {
+                $srcName = $o['caption'];
+                break;
+            }
+        }
+
+        $op = (string) ($cond['Op'] ?? 'true');
+        $condText = $opText[$op] ?? $op;
+        if (!in_array($op, ['true', 'false', 'change'], true)) {
+            $condText .= ' ' . (string) ($cond['Compare'] ?? '');
+        }
+
+        return $srcName . ' ' . $condText;
+    }
+
+    /** Menschenlesbare Beschreibung einer Regel (alle Bedingungen mit UND), z. B. für Kachel und Debug. */
+    private function describeDataAction(array $rule): string
+    {
+        $conditions = $this->normalizeRuleConditions($rule);
+        $parts = array_map([$this, 'describeCondition'], $conditions);
+        $condText = (count($parts) > 0) ? implode(' UND ', $parts) : '?';
+
+        $tVid = (int) ($rule['Target'] ?? 0);
+        $tName = ($tVid > 0 && IPS_VariableExists($tVid)) ? IPS_GetName($tVid) : ('#' . $tVid);
+        switch ((string) ($rule['Action'] ?? 'on')) {
+            case 'off':    $do = $tName . ' ausschalten'; break;
+            case 'toggle': $do = $tName . ' umschalten'; break;
+            case 'value':  $do = $tName . ' = ' . (string) ($rule['Value'] ?? ''); break;
+            default:       $do = $tName . ' einschalten'; break;
+        }
+
+        return sprintf('Wenn %s → %s', $condText, $do);
+    }
+
+    /**
+     * Daten für den Regel-Editor der Kachel: Datenpunkte (Quellen) und
+     * schaltbare Zielvariablen mit Objektbaum-Pfad. JSON: {sources:[{v,c}], targets:[{v,c,p}]}
+     */
+    public function GetDataActionEditor(): string
+    {
+        $sources = [];
+        foreach ($this->getAutomationSourceOptions() as $o) {
+            $sources[] = ['v' => $o['value'], 'c' => $o['caption']];
+        }
+
+        $targets = [];
+        foreach (IPS_GetVariableList() as $vid) {
+            $var = IPS_GetVariable($vid);
+            if ((int) $var['VariableAction'] <= 0 && (int) $var['VariableCustomAction'] <= 0) {
+                continue;
+            }
+            $targets[] = ['v' => $vid, 'c' => IPS_GetName($vid), 'p' => IPS_GetLocation($vid)];
+            if (count($targets) >= 1000) {
+                break;
+            }
+        }
+        usort($targets, function ($a, $b) {
+            return strcasecmp($a['p'], $b['p']);
+        });
+
+        return json_encode(['sources' => $sources, 'targets' => $targets]);
+    }
+
+    /**
+     * Auswählbare Werte einer Zielvariable (Presentation-Enumeration/-Switch bzw.
+     * Legacy-Profil-Assoziationen) als JSON [{v, c}]. Leer, wenn frei einzugeben.
+     */
+    public function GetTargetValueOptions(int $VariableID): string
+    {
+        if ($VariableID <= 0 || !IPS_VariableExists($VariableID)) {
+            return '[]';
+        }
+        $out = [];
+        $var = IPS_GetVariable($VariableID);
+
+        $pres = @IPS_GetVariablePresentation($VariableID);
+        if (is_array($pres)) {
+            $p = $pres['PRESENTATION'] ?? '';
+            if ($p === VARIABLE_PRESENTATION_ENUMERATION) {
+                $opts = json_decode((string) ($pres['OPTIONS'] ?? '[]'), true);
+                if (is_array($opts)) {
+                    foreach ($opts as $o) {
+                        if (is_array($o) && isset($o['Value'])) {
+                            $out[] = ['v' => $o['Value'], 'c' => (string) ($o['Caption'] ?? $o['Value'])];
+                        }
+                    }
+                }
+            } elseif ($p === VARIABLE_PRESENTATION_SWITCH) {
+                $out[] = ['v' => 1, 'c' => (string) ($pres['CAPTION_ON'] ?? 'Ein')];
+                $out[] = ['v' => 0, 'c' => (string) ($pres['CAPTION_OFF'] ?? 'Aus')];
+            }
+        }
+
+        if (count($out) === 0) {
+            $profile = ($var['VariableCustomProfile'] !== '') ? $var['VariableCustomProfile'] : $var['VariableProfile'];
+            if ($profile !== '' && IPS_VariableProfileExists($profile)) {
+                foreach (IPS_GetVariableProfile($profile)['Associations'] as $a) {
+                    $out[] = ['v' => $a['Value'], 'c' => (string) $a['Name']];
+                }
+            }
+        }
+
+        if (count($out) === 0 && (int) $var['VariableType'] === VARIABLETYPE_BOOLEAN) {
+            $out = [['v' => 1, 'c' => 'Ein'], ['v' => 0, 'c' => 'Aus']];
+        }
+        return json_encode($out);
+    }
+
+    /** Regeln als JSON für die Kachel: [{i, text, active, rule}] */
+    public function GetDataActions(): string
+    {
+        $rules = json_decode((string) $this->ReadPropertyString('DataActions'), true);
+        $out = [];
+        if (is_array($rules)) {
+            foreach ($rules as $i => $rule) {
+                if (!is_array($rule)) {
+                    continue;
+                }
+                $out[] = [
+                    'i'      => $i,
+                    'text'   => $this->describeDataAction($rule),
+                    'active' => (bool) ($rule['Active'] ?? true),
+                    'rule'   => [
+                        'Conditions' => $this->normalizeRuleConditions($rule),
+                        'Target'     => (int) ($rule['Target'] ?? 0),
+                        'Action'     => (string) ($rule['Action'] ?? 'on'),
+                        'Value'      => (string) ($rule['Value'] ?? '')
+                    ]
+                ];
+            }
+        }
+        return json_encode($out);
+    }
+
+    /**
+     * Legt eine Regel an oder überschreibt sie ($Index < 0 = anhängen).
+     * $RuleJSON: {Active, Conditions:[{Source,Op,Compare},...] (mit UND verknüpft), Target, Action, Value}
+     */
+    public function SetDataAction(int $Index, string $RuleJSON): void
+    {
+        $in = json_decode($RuleJSON, true);
+        if (!is_array($in)) {
+            return;
+        }
+        $ops = ['true', 'false', 'eq', 'ne', 'gt', 'ge', 'lt', 'le', 'change'];
+        $acts = ['on', 'off', 'toggle', 'value'];
+
+        $conditions = [];
+        foreach ((array) ($in['Conditions'] ?? []) as $c) {
+            if (!is_array($c)) {
+                continue;
+            }
+            $src = trim((string) ($c['Source'] ?? ''));
+            if ($src === '') {
+                continue;
+            }
+            $conditions[] = [
+                'Source'  => $src,
+                'Op'      => in_array(($c['Op'] ?? ''), $ops, true) ? (string) $c['Op'] : 'true',
+                'Compare' => (string) ($c['Compare'] ?? '')
+            ];
+        }
+        $conditions = array_slice($conditions, 0, 5);
+        if (count($conditions) === 0) {
+            return;
+        }
+
+        $rule = [
+            'Active'     => (bool) ($in['Active'] ?? true),
+            'Conditions' => $conditions,
+            // Erste Bedingung zusätzlich flach spiegeln, für die klassische
+            // Formular-Liste (Source/Op/Compare-Spalten)
+            'Source'     => $conditions[0]['Source'],
+            'Op'         => $conditions[0]['Op'],
+            'Compare'    => $conditions[0]['Compare'],
+            'Target'     => (int) ($in['Target'] ?? 0),
+            'Action'     => in_array(($in['Action'] ?? ''), $acts, true) ? (string) $in['Action'] : 'on',
+            'Value'      => (string) ($in['Value'] ?? '')
+        ];
+        if ($rule['Target'] <= 0) {
+            return;
+        }
+
+        $rules = json_decode((string) $this->ReadPropertyString('DataActions'), true);
+        if (!is_array($rules)) {
+            $rules = [];
+        }
+        if ($Index >= 0 && isset($rules[$Index])) {
+            $rules[$Index] = $rule;
+        } else {
+            $rules[] = $rule;
+        }
+        IPS_SetProperty($this->InstanceID, 'DataActions', json_encode(array_values($rules)));
+        IPS_ApplyChanges($this->InstanceID);
+    }
+
+    public function DeleteDataAction(int $Index): void
+    {
+        $rules = json_decode((string) $this->ReadPropertyString('DataActions'), true);
+        if (!is_array($rules) || !isset($rules[$Index])) {
+            return;
+        }
+        unset($rules[$Index]);
+        IPS_SetProperty($this->InstanceID, 'DataActions', json_encode(array_values($rules)));
+        IPS_ApplyChanges($this->InstanceID);
+    }
+
+    /** Aktiviert/deaktiviert eine Regel (z. B. aus der Kachel). */
+    public function SetDataActionActive(int $Index, bool $Active): void
+    {
+        $rules = json_decode((string) $this->ReadPropertyString('DataActions'), true);
+        if (!is_array($rules) || !isset($rules[$Index]) || !is_array($rules[$Index])) {
+            return;
+        }
+        if ((bool) ($rules[$Index]['Active'] ?? true) === $Active) {
+            return;
+        }
+        $rules[$Index]['Active'] = $Active;
+        IPS_SetProperty($this->InstanceID, 'DataActions', json_encode($rules));
+        IPS_ApplyChanges($this->InstanceID);
     }
 }

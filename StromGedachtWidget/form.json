@@ -1,6 +1,45 @@
 {
     "elements": [
         {
+            "type": "ExpansionPanel",
+            "caption": "📖 Dokumentation & Hilfe",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "── Funktionsweise ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Diese Instanz fragt bis zu drei unabhängige Datenquellen ab und stellt für jede aktivierte Quelle eine eigene Ampel-Variable bereit: StromGedacht (Netz-Signal, benötigt PLZ), GrünstromIndex (Öko-Signal, benötigt PLZ) und Energy-Charts (Öko-Signal, bundesweit, keine PLZ nötig). Alle aktivierten Quellen laufen parallel; solange mindestens eine liefert, bleibt die Instanz aktiv."
+                },
+                {
+                    "type": "Label",
+                    "caption": "── Darstellung ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Die Variable 'Anzeige' enthält ein fertiges HTML-Ampel-Widget, das sich manuell in ein WebFront legen lässt. Für eine grafisch einstellbare, native Kachel gibt es zusätzlich das eigenständige Modul 'StromGedachtTile' – einfach eine neue Instanz davon anlegen und als Quelle diese Instanz wählen (bei nur einer StromGedachtWidget-Instanz geschieht das automatisch)."
+                },
+                {
+                    "type": "Label",
+                    "caption": "── Automationen ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Im Bereich 'Automationen (Wenn → Dann)' unten lassen sich Regeln über die Ampel-/Signal-Werte dieser Instanz anlegen, die eine beliebige schaltbare Variable im System schalten – z. B. 'Wenn StromGedacht-Ampel = Rot, dann Wallbox ausschalten'. Regeln feuern flankengesteuert (beim Eintreten der Bedingung, nicht bei jeder Datenmeldung erneut). Die Kachel 'StromGedachtTile' kann dieselben Regeln anzeigen, anlegen, bearbeiten und ein-/ausschalten."
+                },
+                {
+                    "type": "Label",
+                    "caption": "── Weitere Hilfe ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Ausführliche Dokumentation: github.com/DG65/StromGedachtWidget."
+                }
+            ]
+        },
+        {
             "type": "CheckBox",
             "name": "EnableStromGedacht",
             "caption": "StromGedacht (TransnetBW, Netz-Signal, PLZ erforderlich)"
@@ -26,6 +65,150 @@
             "caption": "Aktualisierungsintervall",
             "suffix": " Sekunden",
             "minimum": 60
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "Automationen (Wenn → Dann)",
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "Regeln über die Ampel-/Signal-Werte dieser Instanz: sobald die Bedingung erfüllt wird, schaltet das Modul die Zielvariable. Flankengesteuert – eine Regel feuert beim Eintreten der Bedingung, nicht bei jeder Datenmeldung erneut. Die Kachel 'StromGedachtTile' kann Regeln anzeigen, verwalten und ein-/ausschalten."
+                },
+                {
+                    "type": "List",
+                    "name": "DataActions",
+                    "caption": "Regeln",
+                    "rowCount": 6,
+                    "add": true,
+                    "delete": true,
+                    "columns": [
+                        {
+                            "caption": "Aktiv",
+                            "name": "Active",
+                            "width": "70px",
+                            "add": true,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
+                            "caption": "Wenn Datenpunkt",
+                            "name": "Source",
+                            "width": "220px",
+                            "add": "",
+                            "edit": {
+                                "type": "Select",
+                                "options": []
+                            }
+                        },
+                        {
+                            "caption": "Bedingung",
+                            "name": "Op",
+                            "width": "140px",
+                            "add": "true",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "wird EIN (true)",
+                                        "value": "true"
+                                    },
+                                    {
+                                        "caption": "wird AUS (false)",
+                                        "value": "false"
+                                    },
+                                    {
+                                        "caption": "= (gleich)",
+                                        "value": "eq"
+                                    },
+                                    {
+                                        "caption": "≠ (ungleich)",
+                                        "value": "ne"
+                                    },
+                                    {
+                                        "caption": "> (größer)",
+                                        "value": "gt"
+                                    },
+                                    {
+                                        "caption": "≥ (größer gleich)",
+                                        "value": "ge"
+                                    },
+                                    {
+                                        "caption": "< (kleiner)",
+                                        "value": "lt"
+                                    },
+                                    {
+                                        "caption": "≤ (kleiner gleich)",
+                                        "value": "le"
+                                    },
+                                    {
+                                        "caption": "ändert sich",
+                                        "value": "change"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Vergleichswert",
+                            "name": "Compare",
+                            "width": "115px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        },
+                        {
+                            "caption": "Dann Zielvariable",
+                            "name": "Target",
+                            "width": "auto",
+                            "add": 0,
+                            "edit": {
+                                "type": "SelectVariable"
+                            }
+                        },
+                        {
+                            "caption": "Aktion",
+                            "name": "Action",
+                            "width": "140px",
+                            "add": "on",
+                            "edit": {
+                                "type": "Select",
+                                "options": [
+                                    {
+                                        "caption": "Einschalten",
+                                        "value": "on"
+                                    },
+                                    {
+                                        "caption": "Ausschalten",
+                                        "value": "off"
+                                    },
+                                    {
+                                        "caption": "Umschalten",
+                                        "value": "toggle"
+                                    },
+                                    {
+                                        "caption": "Wert setzen",
+                                        "value": "value"
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "caption": "Wert",
+                            "name": "Value",
+                            "width": "100px",
+                            "add": "",
+                            "edit": {
+                                "type": "ValidationTextBox"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "Label",
+                    "caption": "'Vergleichswert' nur bei =, ≠, >, ≥, <, ≤ nötig; 'Wert' nur bei Aktion 'Wert setzen'. Zahlen mit Punkt oder Komma. Die Zielvariable wird per Aktion geschaltet (wie ein Klick in der Visualisierung); Variablen ohne Aktion werden direkt beschrieben."
+                }
+            ]
         }
     ],
     "actions": [

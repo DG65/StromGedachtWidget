@@ -25,6 +25,7 @@ function IPS_GetKernelRunlevel() { return KR_READY; }
 class IPSModule
 {
     public $properties = [];
+    public $attributes = [];
     public $values = [];
     public $status = 0;
     public $timer = null;
@@ -38,11 +39,18 @@ class IPSModule
     public function ReadPropertyBoolean($name) { return (bool) $this->properties[$name]; }
     public function ReadPropertyInteger($name) { return (int) $this->properties[$name]; }
     public function ReadPropertyString($name) { return (string) $this->properties[$name]; }
+    public function RegisterAttributeBoolean($name, $default) { $this->attributes[$name] ??= $default; }
+    public function RegisterAttributeString($name, $default) { $this->attributes[$name] ??= $default; }
+    public function ReadAttributeBoolean($name) { return (bool) $this->attributes[$name]; }
+    public function ReadAttributeString($name) { return (string) $this->attributes[$name]; }
+    public function WriteAttributeBoolean($name, $value) { $this->attributes[$name] = $value; }
+    public function WriteAttributeString($name, $value) { $this->attributes[$name] = $value; }
     public function RegisterTimer($ident, $interval, $script) {}
     public function SetTimerInterval($ident, $interval) { $this->timer = $interval; }
     public function RegisterMessage($sender, $message) {}
     public function MaintainVariable($ident, $name, $type, $profile, $position, $keep) {}
     public function SetValue($ident, $value) { $this->values[$ident] = $value; }
+    public function GetValue($ident) { return $this->values[$ident] ?? null; }
     public function SetStatus($status) { $this->status = $status; }
 
     public function SendDebug($caption, $message, $format)

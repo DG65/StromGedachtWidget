@@ -48,6 +48,7 @@ Die Werte entsprechen jeweils 1:1 der Quell-API; jede Quelle nutzt ihr eigenes V
 1. In der IP-Symcon-Konsole die **Modulverwaltung** öffnen
 2. Repository hinzufügen: `https://github.com/DG65/StromGedachtWidget`
 3. Instanz **StromGedacht Widget** anlegen
+4. Optional zusätzlich eine Instanz **StromGedachtTile** anlegen, wenn eine native, grafisch einstellbare Kachel im WebFront gewünscht ist (siehe [Kachel](#kachel))
 
 Updates werden ebenfalls über die Modulverwaltung eingespielt („Aktualisieren").
 
@@ -79,6 +80,18 @@ Updates werden ebenfalls über die Modulverwaltung eingespielt („Aktualisieren
 
 Die quellenspezifischen Variablen existieren nur, solange die jeweilige Quelle aktiviert ist.
 
+## Kachel
+
+Für eine native, grafisch einstellbare Darstellung im WebFront gibt es das eigenständige Modul **StromGedachtTile**. Es ist bewusst von der Datenlogik getrennt (eigene Instanz, liest die Werte einer StromGedachtWidget-Instanz über deren Objektbaum) — ein Problem in der Kachel kann die Datenabfrage nicht beeinträchtigen.
+
+- Bei genau einer StromGedachtWidget-Instanz wird sie automatisch als Quelle erkannt; bei mehreren lässt sie sich manuell wählen.
+- Ampelfarben (Supergrün/Grün/Gelb/Orange/Rot), Flächen-/Textfarben und Schrift sind frei einstellbar; ohne eigene Angabe folgt die Kachel dem hellen/dunklen Design des Endgeräts. Ein Tap auf 🔄 aktualisiert die Quelle sofort.
+- Die Kachel kann die Automationen der Quelle vollständig anzeigen und verwalten (siehe unten).
+
+## Automationen (Wenn → Dann)
+
+Im Instanzformular von StromGedacht Widget lassen sich Regeln über die Ampel-/Signal-Werte anlegen, die beim Eintreten der Bedingung eine beliebige schaltbare Variable im System schalten — z. B. „Wenn StromGedacht-Ampel = Rot, dann Wallbox ausschalten". Als Wenn-Datenpunkt stehen die Werte der jeweils aktivierten Quellen zur Verfügung (StromGedacht-Ampel, GrünstromIndex, Energy-Charts-Signal, Energy-Charts EE-Anteil); mehrere Bedingungen werden mit UND verknüpft. Regeln feuern flankengesteuert — beim Eintreten der Bedingung, nicht bei jeder Datenmeldung erneut. Die Kachel StromGedachtTile kann dieselben Regeln anzeigen, anlegen, bearbeiten, löschen und ein-/ausschalten.
+
 ## Instanz-Status
 
 | Code | Bedeutung |
@@ -97,6 +110,8 @@ Fällt nur ein Teil der Quellen aus, bleibt die Instanz aktiv — der Ausfall is
 // Status sofort von der konfigurierten Quelle abrufen und Variablen aktualisieren
 SGW_Update(int $InstanzID);
 ```
+
+Weitere Funktionen verwalten die Automationen (v. a. für die Kachel gedacht, siehe [Automationen](#automationen-wenn--dann)): `SGW_GetDataActions`, `SGW_SetDataAction`, `SGW_DeleteDataAction`, `SGW_SetDataActionActive`, `SGW_GetDataActionEditor`, `SGW_GetTargetValueOptions`.
 
 ## Datenquellen / APIs
 
@@ -121,6 +136,14 @@ Vermutlich hängt die Variable „Ampel" noch an einem Variablenprofil einer äl
 
 **Keine Daten / Variablen bleiben leer**
 Im Debug-Fenster der Instanz prüfen: Dort werden HTTP-Code und API-Antwort jedes Abrufs protokolliert.
+
+## Änderungen
+
+**1.4.0** (2026-07-13)
+- Neues eigenständiges Kachel-Modul **StromGedachtTile** (grafisch einstellbare native Kachel fürs WebFront, siehe [Kachel](#kachel))
+- **Automationen (Wenn → Dann)** im Instanzformular und in der Kachel (siehe [Automationen](#automationen-wenn--dann))
+- Dokumentations-Panel „📖 Dokumentation & Hilfe" im Instanzformular
+- Bewertungs-Hinweis mit Link zur [Symcon-Community](https://community.symcon.de/t/modul-strom-gedacht-ampel-widget/143960) (einmalig, ausblendbar)
 
 ## Lizenz
 

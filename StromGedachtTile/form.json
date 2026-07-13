@@ -1,0 +1,194 @@
+{
+    "elements": [
+        {
+            "type": "ExpansionPanel",
+            "caption": "📖 Dokumentation & Hilfe",
+            "expanded": false,
+            "items": [
+                {
+                    "type": "Label",
+                    "caption": "── Funktionsweise ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Die Kachel ist eine eigenständige Instanz für die Visualisierung und von der Datenverbindung getrennt: Sie liest ihre Werte aus einer StromGedachtWidget-Instanz und aktualisiert sich sofort, wenn sich dort etwas ändert. Gibt es genau eine StromGedachtWidget-Instanz, wird sie automatisch als Quelle erkannt – nur bei mehreren musst du unten manuell wählen. Angezeigt wird nur, was in der Quelle aktiviert ist (StromGedacht, GrünstromIndex, Energy-Charts)."
+                },
+                {
+                    "type": "Label",
+                    "caption": "── Darstellung ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Die Ampelfarben (Supergrün/Grün/Gelb/Orange/Rot) gelten einheitlich für alle drei Datenquellen. Flächen-, Text- und Schriftoptionen passen die Kachel an deine Visualisierung an; ohne eigene Angabe folgt die Kachel dem hellen/dunklen Design des Endgeräts. Der Kachelname kann automatisch von der Quelle übernommen werden. Ein Tap auf das 🔄-Symbol aktualisiert die Quelle sofort."
+                },
+                {
+                    "type": "Label",
+                    "caption": "── Automationen ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Mit 'Automationen anzeigen' verwaltet die Kachel die Wenn→Dann-Regeln der StromGedachtWidget-Quelle vollständig: '+ Neue Regel' legt eine Regel an, ✎ bearbeitet, der Papierkorb löscht (mit Rückfrage), der Schalter aktiviert/deaktiviert. Im Editor werden als Ziel schaltbare Variablen (mit Aktion) angeboten – per Suchfeld filterbar; bei 'Wert setzen' erscheinen die im Profil/der Darstellung definierten Werte als Auswahlliste. Ist die Kachel mehrfach verlinkt, wirken alle Änderungen überall auf dieselben Regeln."
+                },
+                {
+                    "type": "Label",
+                    "caption": "Der Button 'Farben & Schrift auf Standard zurücksetzen' ändert nur das offene Formular – gespeichert wird erst mit 'Änderungen übernehmen'."
+                },
+                {
+                    "type": "Label",
+                    "caption": "── Weitere Hilfe ──"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Ausführliche Dokumentation: github.com/DG65/StromGedachtWidget."
+                }
+            ]
+        },
+        {
+            "type": "Label",
+            "caption": "Eigenständige Ampel-Kachel für StromGedachtWidget. Die Datenquelle wird automatisch erkannt, wenn es genau eine StromGedachtWidget-Instanz gibt – nur bei mehreren musst du unten manuell wählen."
+        },
+        {
+            "type": "SelectInstance",
+            "name": "SourceInstance",
+            "caption": "Datenquelle (leer = automatisch erkennen)",
+            "validModules": [
+                "{D5A8C3A1-2222-4A55-8888-123456789003}"
+            ]
+        },
+        {
+            "type": "CheckBox",
+            "name": "AdoptWidgetName",
+            "caption": "Kachelname automatisch von der Quelle übernehmen"
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🎨 Ampelfarben",
+            "items": [
+                {
+                    "type": "SelectColor",
+                    "name": "ColorSuperGreen",
+                    "caption": "Supergrün"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorGreen",
+                    "caption": "Grün"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorYellow",
+                    "caption": "Gelb"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorOrange",
+                    "caption": "Orange"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorRed",
+                    "caption": "Rot"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🖌️ Flächen & Text",
+            "items": [
+                {
+                    "type": "SelectColor",
+                    "name": "ColorBackground",
+                    "caption": "Hintergrund"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorBox",
+                    "caption": "Kacheln/Boxen"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorText",
+                    "caption": "Text (Werte)"
+                },
+                {
+                    "type": "SelectColor",
+                    "name": "ColorTextMuted",
+                    "caption": "Text (Beschriftungen)"
+                }
+            ]
+        },
+        {
+            "type": "ExpansionPanel",
+            "caption": "🔤 Schrift",
+            "items": [
+                {
+                    "type": "Select",
+                    "name": "FontFamily",
+                    "caption": "Schriftart",
+                    "options": [
+                        {
+                            "caption": "System (Standard)",
+                            "value": "system"
+                        },
+                        {
+                            "caption": "Arial",
+                            "value": "arial"
+                        },
+                        {
+                            "caption": "Verdana",
+                            "value": "verdana"
+                        },
+                        {
+                            "caption": "Tahoma",
+                            "value": "tahoma"
+                        },
+                        {
+                            "caption": "Trebuchet MS",
+                            "value": "trebuchet"
+                        },
+                        {
+                            "caption": "Georgia (Serif)",
+                            "value": "georgia"
+                        },
+                        {
+                            "caption": "Courier New (Monospace)",
+                            "value": "courier"
+                        }
+                    ]
+                },
+                {
+                    "type": "NumberSpinner",
+                    "name": "FontScale",
+                    "caption": "Schriftgröße (Faktor)",
+                    "digits": 2,
+                    "minimum": 0.5,
+                    "maximum": 2.5,
+                    "suffix": "×"
+                }
+            ]
+        },
+        {
+            "type": "CheckBox",
+            "name": "ShowAutomations",
+            "caption": "Automationen anzeigen (Wenn → Dann-Regeln der Quelle verwalten)"
+        },
+        {
+            "type": "Button",
+            "caption": "Farben & Schrift auf Standard zurücksetzen",
+            "onClick": "SGWTILE_ResetStyle($id);"
+        }
+    ],
+    "actions": [],
+    "status": [
+        {
+            "code": 102,
+            "icon": "active",
+            "caption": "Aktiv"
+        },
+        {
+            "code": 104,
+            "icon": "inactive",
+            "caption": "Keine Datenquelle gefunden – bitte manuell wählen"
+        }
+    ]
+}

@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root {
+            --bg: transparent;
+            --box: rgba(127, 135, 145, .16);
+            --text: #ffffff;
+            --textmuted: #9fb0c0;
+            --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --scale: 1;
+            --track: rgba(127, 135, 145, .25);
+            --accent: #2bb3c0;
+        }
+
+        @media (prefers-color-scheme: light) {
+            :root {
+                --box: rgba(20, 30, 45, .06);
+                --text: #1b2430;
+                --textmuted: #5c6b7a;
+            }
+        }
+
+        html { height: 100%; background: var(--bg); overflow: hidden; }
+        body { margin: 0; height: 100%; box-sizing: border-box; font-family: var(--font); color: var(--text); }
+        .wrap { box-sizing: border-box; padding: 50px 18px 16px; }
+
+        .sgt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+        .sgt-name { font-size: calc(17px * var(--scale)); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sgt-updated { font-size: calc(11px * var(--scale)); color: var(--textmuted); white-space: nowrap; }
+        .sgt-refresh { border: none; background: none; color: var(--textmuted); cursor: pointer; font-size: calc(16px * var(--scale)); padding: 2px 6px; border-radius: 8px; }
+        .sgt-refresh:hover { color: var(--text); background: var(--track); }
+        .sgt-refresh.spin { animation: sgtspin .8s linear; }
+        @keyframes sgtspin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .sgt-cols { display: flex; justify-content: center; gap: 18px; flex-wrap: wrap; margin-bottom: 16px; text-align: center; }
+        .sgt-col { min-width: 96px; max-width: 160px; }
+        .sgt-col-title { font-size: calc(11px * var(--scale)); color: var(--textmuted); margin-bottom: 8px; }
+        .sgt-dot { width: calc(42px * var(--scale)); height: calc(42px * var(--scale)); border-radius: 50%; margin: 0 auto 8px auto; }
+        .sgt-col-label { font-size: calc(14px * var(--scale)); font-weight: 700; margin-bottom: 4px; }
+        .sgt-col-text { font-size: calc(10px * var(--scale)); color: var(--textmuted); line-height: 1.3; }
+        .sgt-missing { text-align: center; color: var(--textmuted); font-size: calc(13px * var(--scale)); padding: 20px 0; }
+
+        .sgt-rules { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .sgt-rules .hdrow { display: flex; align-items: center; justify-content: space-between; }
+        .sgt-rules .hd { font-size: calc(10px * var(--scale)); color: var(--textmuted); text-transform: uppercase; letter-spacing: .5px; }
+        .sgt-rule { display: flex; align-items: center; gap: 8px; background: var(--box); border-radius: 11px; padding: 8px 11px; }
+        .sgt-rule .t { flex: 1 1 auto; font-size: calc(12px * var(--scale)); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .sgt-rule.off .t { color: var(--textmuted); }
+        .sgt-ico { flex: 0 0 auto; border: none; background: none; color: var(--textmuted); cursor: pointer; font-size: calc(13px * var(--scale)); padding: 2px 4px; border-radius: 6px; }
+        .sgt-ico:hover { color: var(--text); background: var(--track); }
+        .sgt-ico.warn { color: #e05a4e; }
+        .sgt-add { border: 1px dashed var(--textmuted); background: none; color: var(--textmuted); border-radius: 999px; font-size: calc(11px * var(--scale)); padding: 2px 10px; cursor: pointer; }
+        .sgt-add:hover { color: var(--accent); border-color: var(--accent); }
+        .sgt-sw { flex: 0 0 auto; width: calc(36px * var(--scale)); height: calc(20px * var(--scale)); border: none; border-radius: 999px; background: var(--track); cursor: pointer; position: relative; padding: 0; }
+        .sgt-sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: calc(16px * var(--scale)); height: calc(16px * var(--scale)); border-radius: 50%; background: #fff; transition: transform .15s ease; }
+        .sgt-sw.on { background: var(--accent); }
+        .sgt-sw.on::after { transform: translateX(calc(16px * var(--scale))); }
+
+        /* Regel-Editor (Overlay) */
+        .sgt-ed { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: flex-start; justify-content: center; padding: 24px 12px; overflow: auto; z-index: 10; }
+        .sgt-ed.open { display: flex; }
+        .sgt-ed-card { background: var(--bg); border: 1px solid var(--track); border-radius: 14px; padding: 16px; width: 100%; max-width: 520px; box-sizing: border-box; backdrop-filter: blur(6px); background-color: rgba(30,36,44,.97); }
+        @media (prefers-color-scheme: light) { .sgt-ed-card { background-color: rgba(250,251,252,.98); } }
+        .sgt-ed-card h3 { margin: 0 0 12px; font-size: calc(14px * var(--scale)); color: var(--text); }
+        .sgt-ed-card label { display: block; font-size: calc(10px * var(--scale)); color: var(--textmuted); text-transform: uppercase; letter-spacing: .5px; margin: 10px 0 4px; }
+        .sgt-ed-card select, .sgt-ed-card input { width: 100%; box-sizing: border-box; background: var(--box); color: var(--text); border: 1px solid var(--track); border-radius: 8px; padding: 8px 10px; font-size: calc(13px * var(--scale)); font-family: var(--font); }
+        .sgt-ed-actions { display: flex; gap: 8px; margin-top: 16px; }
+        .sgt-ed-actions .sgt-btn { flex: 1 1 auto; }
+        .sgt-ed-hint { font-size: calc(11px * var(--scale)); color: var(--textmuted); margin-top: 6px; }
+        .ed-cond-box { border: 1px solid var(--track); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+        .ed-cond-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .ed-cond-tag { font-size: calc(10px * var(--scale)); font-weight: 700; letter-spacing: .5px; color: var(--accent); text-transform: uppercase; }
+        .ed-cond-box select, .ed-cond-box input { margin-top: 6px; }
+
+        .sgt-btn { border: none; border-radius: 10px; padding: 10px 8px; font-size: calc(13px * var(--scale)); font-weight: 600; cursor: pointer; background: var(--box); color: var(--text); }
+        .sgt-btn.on { color: var(--accent); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap" id="card">
+        <div class="sgt-head">
+            <div class="sgt-name" id="sgt-name">StromGedacht</div>
+            <button class="sgt-refresh" id="sgt-refresh" title="Jetzt aktualisieren">🔄</button>
+        </div>
+        <div class="sgt-updated" id="sgt-updated" style="margin-bottom:14px"></div>
+
+        <div class="sgt-missing" id="sgt-missing" style="display:none">Keine Datenquelle gefunden – bitte in den Kachel-Einstellungen wählen.</div>
+
+        <div class="sgt-cols" id="sgt-cols"></div>
+
+        <div class="sgt-rules" id="sgt-rules" style="display:none"></div>
+    </div>
+
+    <div class="sgt-ed" id="sgt-ed">
+        <div class="sgt-ed-card">
+            <h3 id="ed-title">Regel bearbeiten</h3>
+
+            <label>Wenn (mehrere Bedingungen werden mit UND verknüpft)</label>
+            <div id="ed-conditions"></div>
+            <button class="sgt-add" type="button" id="ed-addcond">+ Bedingung (UND)</button>
+
+            <label for="ed-tfilter" style="margin-top:14px">Dann Zielvariable</label>
+            <input id="ed-tfilter" type="text" placeholder="Suchen (Name oder Pfad) …" autocomplete="off">
+            <select id="ed-target" size="1" style="margin-top:6px"></select>
+            <div class="sgt-ed-hint">Angeboten werden schaltbare Variablen (mit Aktion). Andere Ziele lassen sich im Instanzformular wählen.</div>
+
+            <label for="ed-act">Aktion</label>
+            <select id="ed-act">
+                <option value="on">Einschalten</option>
+                <option value="off">Ausschalten</option>
+                <option value="toggle">Umschalten</option>
+                <option value="value">Wert setzen</option>
+            </select>
+
+            <div id="ed-val-wrap">
+                <label for="ed-val">Wert</label>
+                <select id="ed-val-sel" style="display:none"></select>
+                <input id="ed-val" type="text" placeholder="Wert">
+            </div>
+
+            <div class="sgt-ed-actions">
+                <button class="sgt-btn" id="ed-cancel">Abbrechen</button>
+                <button class="sgt-btn on" id="ed-save">Speichern</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function fmtTime(ts) {
+            if (!ts) return '';
+            var d = new Date(ts * 1000);
+            function p(n) { return (n < 10 ? '0' : '') + n; }
+            return 'Aktualisiert: ' + p(d.getDate()) + '.' + p(d.getMonth() + 1) + '.' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+        }
+
+        function handleMessage(payload) {
+            var d = (typeof payload === 'string') ? JSON.parse(payload) : payload;
+            if (!d) return;
+
+            // Teil-Nachrichten für den Regel-Editor (kein vollständiges Kachel-Update)
+            if (d.editor !== undefined) { ED.data = d.editor; edOpenNow(); return; }
+            if (d.targetOpts !== undefined) { edApplyTargetOpts(d.targetOpts); return; }
+
+            var root = document.documentElement.style;
+            function applyVar(name, val) { if (val) { root.setProperty(name, val); } else { root.removeProperty(name); } }
+            applyVar('--bg', d.bg);
+            applyVar('--box', d.box);
+            applyVar('--text', d.text);
+            applyVar('--textmuted', d.textmuted);
+            if (d.font) root.setProperty('--font', d.font);
+            root.setProperty('--scale', d.scale || 1);
+
+            document.getElementById('sgt-name').textContent = d.name || 'StromGedacht';
+            document.getElementById('sgt-updated').textContent = fmtTime(d.updated);
+
+            var missing = document.getElementById('sgt-missing');
+            var cols = document.getElementById('sgt-cols');
+            cols.textContent = '';
+            if (d.missing || !Array.isArray(d.columns) || d.columns.length === 0) {
+                missing.style.display = 'block';
+            } else {
+                missing.style.display = 'none';
+                d.columns.forEach(function (c) {
+                    var col = document.createElement('div');
+                    col.className = 'sgt-col';
+
+                    var title = document.createElement('div');
+                    title.className = 'sgt-col-title';
+                    title.textContent = c.title;
+                    col.appendChild(title);
+
+                    var dot = document.createElement('div');
+                    dot.className = 'sgt-dot';
+                    dot.style.background = c.color;
+                    dot.style.boxShadow = '0 0 14px ' + c.color;
+                    col.appendChild(dot);
+
+                    var label = document.createElement('div');
+                    label.className = 'sgt-col-label';
+                    label.style.color = c.color;
+                    label.textContent = c.label;
+                    col.appendChild(label);
+
+                    var text = document.createElement('div');
+                    text.className = 'sgt-col-text';
+                    text.textContent = c.text;
+                    col.appendChild(text);
+
+                    cols.appendChild(col);
+                });
+            }
+
+            var rules = document.getElementById('sgt-rules');
+            rules.textContent = '';
+            if (Array.isArray(d.rules)) {
+                rules.style.display = 'flex';
+                var hdrow = document.createElement('div');
+                hdrow.className = 'hdrow';
+                var hd = document.createElement('div');
+                hd.className = 'hd';
+                hd.textContent = 'Automationen';
+                var add = document.createElement('button');
+                add.className = 'sgt-add';
+                add.textContent = '+ Neue Regel';
+                add.onclick = function () { edOpen(-1, null); };
+                hdrow.appendChild(hd);
+                hdrow.appendChild(add);
+                rules.appendChild(hdrow);
+                d.rules.forEach(function (r) {
+                    var row = document.createElement('div');
+                    row.className = 'sgt-rule' + (r.active ? '' : ' off');
+                    var t = document.createElement('span');
+                    t.className = 't';
+                    t.textContent = r.text;
+                    t.title = r.text;
+                    var ed = document.createElement('button');
+                    ed.className = 'sgt-ico';
+                    ed.textContent = '✎';
+                    ed.title = 'Regel bearbeiten';
+                    ed.onclick = function () { edOpen(r.i, r.rule, r.active); };
+                    var del = document.createElement('button');
+                    del.className = 'sgt-ico';
+                    del.textContent = '\u{1F5D1}';
+                    del.title = 'Regel löschen';
+                    del.onclick = function () {
+                        if (del.dataset.confirm === '1') { requestAction('ruleDelete', r.i); return; }
+                        del.dataset.confirm = '1';
+                        del.textContent = 'Sicher?';
+                        del.className = 'sgt-ico warn';
+                        setTimeout(function () { del.dataset.confirm = ''; del.textContent = '\u{1F5D1}'; del.className = 'sgt-ico'; }, 3000);
+                    };
+                    var sw = document.createElement('button');
+                    sw.className = 'sgt-sw' + (r.active ? ' on' : '');
+                    sw.setAttribute('aria-label', (r.active ? 'Regel deaktivieren: ' : 'Regel aktivieren: ') + r.text);
+                    sw.onclick = function () { requestAction('rule', JSON.stringify({ i: r.i, on: !r.active })); };
+                    row.appendChild(t);
+                    row.appendChild(ed);
+                    row.appendChild(del);
+                    row.appendChild(sw);
+                    rules.appendChild(row);
+                });
+            } else {
+                rules.style.display = 'none';
+            }
+        }
+
+        document.getElementById('sgt-refresh').onclick = function () {
+            this.classList.add('spin');
+            var btn = this;
+            setTimeout(function () { btn.classList.remove('spin'); }, 800);
+            requestAction('refresh', true);
+        };
+
+        // ------------------------------------------------------------------
+        // Regel-Editor
+        // ------------------------------------------------------------------
+        var ED = { data: null, i: -1, rule: null, active: true, pendingOpen: false };
+        var NUM_OPS = ['eq', 'ne', 'gt', 'ge', 'lt', 'le'];
+        var OP_OPTIONS = [
+            { v: 'true', c: 'wird EIN (true)' },
+            { v: 'false', c: 'wird AUS (false)' },
+            { v: 'eq', c: '= (gleich)' },
+            { v: 'ne', c: '≠ (ungleich)' },
+            { v: 'gt', c: '> (größer)' },
+            { v: 'ge', c: '≥ (größer gleich)' },
+            { v: 'lt', c: '< (kleiner)' },
+            { v: 'le', c: '≤ (kleiner gleich)' },
+            { v: 'change', c: 'ändert sich' }
+        ];
+
+        function edOpen(i, rule, active) {
+            ED.i = i;
+            ED.rule = rule || { Conditions: [], Target: 0, Action: 'on', Value: '' };
+            ED.active = (active === undefined) ? true : !!active;
+            if (ED.data) { edOpenNow(); }
+            else { ED.pendingOpen = true; requestAction('ruleEditor', ''); }
+        }
+
+        function edBuildConditionRow(cond) {
+            cond = cond || { Source: '', Op: 'true', Compare: '' };
+            var box = document.createElement('div');
+            box.className = 'ed-cond-box';
+
+            var hd = document.createElement('div');
+            hd.className = 'ed-cond-hd';
+            var tag = document.createElement('span');
+            tag.className = 'ed-cond-tag';
+            hd.appendChild(tag);
+            var del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'sgt-ico warn';
+            del.textContent = '\u{1F5D1}';
+            del.title = 'Bedingung entfernen';
+            del.onclick = function () { box.remove(); edRefreshConditionTags(); };
+            hd.appendChild(del);
+            box.appendChild(hd);
+
+            var src = document.createElement('select');
+            src.className = 'ed-cond-src';
+            (ED.data.sources || []).forEach(function (s) {
+                var o = document.createElement('option');
+                o.value = s.v; o.textContent = s.c;
+                src.appendChild(o);
+            });
+            if (cond.Source) src.value = cond.Source;
+            box.appendChild(src);
+
+            var op = document.createElement('select');
+            op.className = 'ed-cond-op';
+            OP_OPTIONS.forEach(function (o) {
+                var e = document.createElement('option');
+                e.value = o.v; e.textContent = o.c;
+                op.appendChild(e);
+            });
+            op.value = cond.Op || 'true';
+            box.appendChild(op);
+
+            var cmp = document.createElement('input');
+            cmp.type = 'text';
+            cmp.className = 'ed-cond-cmp';
+            cmp.placeholder = 'Vergleichswert';
+            cmp.value = cond.Compare || '';
+            box.appendChild(cmp);
+
+            function syncCmp() { cmp.style.display = (NUM_OPS.indexOf(op.value) >= 0) ? '' : 'none'; }
+            op.onchange = syncCmp;
+            syncCmp();
+
+            return box;
+        }
+
+        function edRefreshConditionTags() {
+            var boxes = document.querySelectorAll('#ed-conditions .ed-cond-box');
+            boxes.forEach(function (box, idx) {
+                box.querySelector('.ed-cond-tag').textContent = (idx === 0) ? 'WENN' : 'UND';
+                var del = box.querySelector('.sgt-ico');
+                del.style.visibility = (boxes.length > 1) ? 'visible' : 'hidden';
+            });
+        }
+
+        document.getElementById('ed-addcond').onclick = function () {
+            document.getElementById('ed-conditions').appendChild(edBuildConditionRow(null));
+            edRefreshConditionTags();
+        };
+
+        function edOpenNow() {
+            if (!ED.data) return;
+            if (ED.pendingOpen) ED.pendingOpen = false;
+
+            var condsWrap = document.getElementById('ed-conditions');
+            condsWrap.textContent = '';
+            var conds = (ED.rule.Conditions && ED.rule.Conditions.length) ? ED.rule.Conditions : [null];
+            conds.forEach(function (c) { condsWrap.appendChild(edBuildConditionRow(c)); });
+            edRefreshConditionTags();
+
+            document.getElementById('ed-tfilter').value = '';
+            edRenderTargets('');
+            document.getElementById('ed-act').value = ED.rule.Action || 'on';
+            document.getElementById('ed-val').value = ED.rule.Value || '';
+            document.getElementById('ed-title').textContent = (ED.i < 0) ? 'Neue Regel' : 'Regel bearbeiten';
+            edSync();
+            document.getElementById('sgt-ed').classList.add('open');
+        }
+
+        function edRenderTargets(filter) {
+            var sel = document.getElementById('ed-target');
+            sel.textContent = '';
+            var f = (filter || '').toLowerCase();
+            var count = 0, hasCurrent = false;
+            (ED.data.targets || []).forEach(function (t) {
+                if (count >= 200) return;
+                var label = t.p || t.c;
+                if (f && label.toLowerCase().indexOf(f) < 0) return;
+                var o = document.createElement('option');
+                o.value = t.v; o.textContent = label;
+                sel.appendChild(o);
+                if (String(t.v) === String(ED.rule.Target)) hasCurrent = true;
+                count++;
+            });
+            if (!hasCurrent && ED.rule.Target > 0) {
+                var known = (ED.data.targets || []).find(function (t) { return String(t.v) === String(ED.rule.Target); });
+                var cur = document.createElement('option');
+                cur.value = ED.rule.Target;
+                cur.textContent = known ? (known.p || known.c) : ('#' + ED.rule.Target);
+                sel.insertBefore(cur, sel.firstChild);
+            }
+            if (ED.rule.Target > 0) sel.value = String(ED.rule.Target);
+        }
+
+        function edSync() {
+            var isValue = (document.getElementById('ed-act').value === 'value');
+            document.getElementById('ed-val-wrap').style.display = isValue ? 'block' : 'none';
+            if (isValue) {
+                var vid = parseInt(document.getElementById('ed-target').value || '0', 10);
+                document.getElementById('ed-val-sel').style.display = 'none';
+                document.getElementById('ed-val').style.display = '';
+                if (vid > 0) requestAction('targetOpts', vid);
+            }
+        }
+
+        function edApplyTargetOpts(to) {
+            if (!document.getElementById('sgt-ed').classList.contains('open')) return;
+            var vid = parseInt(document.getElementById('ed-target').value || '0', 10);
+            if (!to || parseInt(to.vid, 10) !== vid) return;
+            var sel = document.getElementById('ed-val-sel');
+            var inp = document.getElementById('ed-val');
+            if (to.options && to.options.length) {
+                sel.textContent = '';
+                to.options.forEach(function (o) {
+                    var e = document.createElement('option');
+                    e.value = o.v; e.textContent = o.c + ' (' + o.v + ')';
+                    sel.appendChild(e);
+                });
+                if (inp.value !== '') sel.value = inp.value;
+                if (sel.selectedIndex < 0) sel.selectedIndex = 0;
+                sel.style.display = '';
+                inp.style.display = 'none';
+            } else {
+                sel.style.display = 'none';
+                inp.style.display = '';
+            }
+        }
+
+        function edClose() { document.getElementById('sgt-ed').classList.remove('open'); }
+
+        document.getElementById('ed-act').onchange = edSync;
+        document.getElementById('ed-target').onchange = edSync;
+        document.getElementById('ed-tfilter').oninput = function () { edRenderTargets(this.value); edSync(); };
+        document.getElementById('ed-cancel').onclick = edClose;
+        document.getElementById('sgt-ed').onclick = function (ev) { if (ev.target === this) edClose(); };
+        document.getElementById('ed-save').onclick = function () {
+            var conditions = [];
+            document.querySelectorAll('#ed-conditions .ed-cond-box').forEach(function (box) {
+                var src = box.querySelector('.ed-cond-src').value;
+                if (!src) return;
+                conditions.push({
+                    Source: src,
+                    Op: box.querySelector('.ed-cond-op').value,
+                    Compare: box.querySelector('.ed-cond-cmp').value
+                });
+            });
+            if (!conditions.length) return;
+
+            var valSel = document.getElementById('ed-val-sel');
+            var rule = {
+                Active: ED.active,
+                Conditions: conditions,
+                Target: parseInt(document.getElementById('ed-target').value || '0', 10),
+                Action: document.getElementById('ed-act').value,
+                Value: (valSel.style.display !== 'none') ? valSel.value : document.getElementById('ed-val').value
+            };
+            if (!(rule.Target > 0)) return;
+            requestAction('ruleSave', JSON.stringify({ i: ED.i, rule: rule }));
+            edClose();
+        };
+    </script>
+</body>
+
+</html>

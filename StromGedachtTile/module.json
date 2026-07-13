@@ -1,0 +1,14 @@
+{
+    "id": "{E9B65213-BA33-426D-8486-D350A7DFCFEF}",
+    "name": "StromGedachtTile",
+    "type": 3,
+    "vendor": "TransnetBW GmbH",
+    "aliases": [
+        "StromGedacht Ampel-Kachel"
+    ],
+    "url": "https://github.com/DG65/StromGedachtWidget",
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "SGWTILE"
+}
