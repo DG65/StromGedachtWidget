@@ -342,7 +342,9 @@
                 requestAction('condOpts', src.value);
             };
             updateCmpVisibility(box);
-            if (cond.Source) requestAction('condOpts', cond.Source);
+            // Profilwerte immer abfragen, auch wenn die Quelle nur die (automatische)
+            // Vorauswahl des Selects ist, nicht nur bei einer bestehenden Regel
+            if (src.value) requestAction('condOpts', src.value);
 
             return box;
         }
@@ -370,6 +372,7 @@
                 if (box.querySelector('.ed-cond-src').value !== payload.source) return;
                 var sel = box.querySelector('.ed-cond-cmpsel');
                 var inp = box.querySelector('.ed-cond-cmp');
+                var opField = box.querySelector('.ed-cond-op');
                 var opts = payload.options || [];
                 sel.textContent = '';
                 opts.forEach(function (o) {
@@ -380,6 +383,13 @@
                 if (opts.length && inp.value !== '') {
                     var match = opts.find(function (o) { return String(o.v) === String(inp.value); });
                     if (match) sel.value = String(match.v);
+                }
+                // "wird EIN/AUS" ergibt bei einem Datenpunkt mit mehreren Profilwerten
+                // (z. B. einer Ampel) meist keinen Sinn - automatisch auf "= (gleich)"
+                // wechseln, damit die Werte sofort sichtbar sind, statt erst nach
+                // manuellem Umstellen der Bedingung.
+                if (opts.length && (opField.value === 'true' || opField.value === 'false')) {
+                    opField.value = 'eq';
                 }
                 updateCmpVisibility(box);
             });
