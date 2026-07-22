@@ -50,7 +50,7 @@ Die Werte entsprechen jeweils 1:1 der Quell-API; jede Quelle nutzt ihr eigenes V
 3. Instanz **StromGedacht Widget** anlegen
 4. Optional zusätzlich eine Instanz **StromGedachtTile** anlegen, wenn eine native, grafisch einstellbare Kachel im WebFront gewünscht ist (siehe [Kachel](#kachel))
 
-Updates werden ebenfalls über die Modulverwaltung eingespielt („Aktualisieren").
+Aktualisierungen werden ebenfalls über die Modulverwaltung eingespielt („Aktualisieren").
 
 ## Konfiguration
 

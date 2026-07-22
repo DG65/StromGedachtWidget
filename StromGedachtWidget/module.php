@@ -443,7 +443,7 @@ class StromGedachtWidget extends IPSModule
 
         $this->SendDebug('API', 'HTTP ' . $code . ' ' . $url, 0);
         if ($body !== null) {
-            $this->SendDebug('API Response', $body, 0);
+            $this->SendDebug('API-Antwort', $body, 0);
         }
 
         return [$code, $body];

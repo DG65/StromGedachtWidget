@@ -31,7 +31,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Der Button 'Farben & Schrift auf Standard zurücksetzen' ändert nur das offene Formular – gespeichert wird erst mit 'Änderungen übernehmen'."
+                    "caption": "Die Schaltfläche 'Farben & Schrift auf Standard zurücksetzen' ändert nur das offene Formular – gespeichert wird erst mit 'Änderungen übernehmen'."
                 },
                 {
                     "type": "Label",
