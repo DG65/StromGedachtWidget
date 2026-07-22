@@ -14,7 +14,17 @@ Betroffen sind:
 - Texte in der Kachel (`StromGedachtTile/module.html`), README, CHANGELOG
 
 Vermeidbare Anglizismen ersetzen: Dry-Run → Probelauf, Link → Verknüpfung, Event → Ereignis,
-Button → Schaltfläche, Checkliste → Prüfliste, Scan/scannen → Suche/suchen.
+Button → Schaltfläche, Checkliste → Prüfliste, Scan/scannen → Suche/suchen,
+Token → Zugangsschlüssel.
+
+**Faustregel:** eindeutschen, wo es das Verständnis verbessert; stehen lassen, wo der englische
+Begriff der Fachbegriff oder ein Produktname **ist**. Hier stehen bleiben daher u. a.:
+GrünstromIndex, Energy-Charts, StromGedacht (Produktnamen), API, HTTP, Debug (so heißt das
+Fenster in der IPS-Konsole), WebFront.
+
+**Beim Ersetzen die Grammatik prüfen** — ein Wort-für-Wort-Ersatz bricht Sätze, sobald sich das
+Genus ändert (aus „der Button" wird „**die** Schaltfläche", nicht „der Schaltfläche"). Also nie
+blind `replace_all`, sondern den Diff durchsehen.
 
 **Ausgenommen** (bleibt englisch, weil Umbenennen Verträge bricht):
 
