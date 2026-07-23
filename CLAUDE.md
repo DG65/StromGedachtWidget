@@ -40,6 +40,20 @@ Für den geplanten `SGW_GetState()`-Vertrag heißt das: Feldnamen englisch
 (`state`, `label`, `gsi`, `ecSignal`, `ecShare`, `updated`), das `label`-**Feld** aber mit
 deutschem Anzeigetext füllen.
 
+## Emojis
+
+Verbund-Regel (Entscheidung Dietmar 23.07.2026, ersetzt jede frühere „keine Emojis"-Vorgabe):
+**Emojis sind erwünscht, wo sie Nutzen stiften.** Zwei Einsatzzwecke:
+
+1. **Panel-Icon** — ein Zeichen am Anfang einer ExpansionPanel-Überschrift (Ersatz fürs fehlende
+   `icon`-Feld). Hier bereits genutzt: 📖 Dokumentation & Hilfe, 🎨 Ampelfarben, 🖌️ Flächen & Text,
+   🔤 Schrift.
+2. **Status-/Aufmerksamkeitssymbol** (✅❌⚠️💡ℹ️ sowie unsere Ampel-Darstellungen 🔄 usw.) dort,
+   wo etwas beim Lesen Aufmerksamkeit erfordert oder herausgestellt werden soll.
+
+Kein Symcon-Store-Review hat Emojis je beanstandet. **Beobachtungsklausel:** sollte ein
+Stable-Review sie doch bemängeln, entscheidet der Verbund neu (Rückfall: gemeinsam emoji-frei).
+
 ## Zweige
 
 - `beta` — Entwicklung und schnelle Auslieferung an Dietmar und seinen Testerkreis. **Hier entwickeln und pushen.**
