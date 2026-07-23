@@ -1,5 +1,7 @@
 # StromGedachtWidget
 
+> Teil der **DG65 Energie-Suite** — welche Modulstände zusammenpassen: https://github.com/DG65/EMS/blob/main/SUITE.md
+
 IP-Symcon-Modul, das Stromampel-Signale aus bis zu drei Quellen parallel abruft und nebeneinander als Ampel-Widget darstellt:
 
 - **[StromGedacht](https://www.stromgedacht.de)** (TransnetBW) — *Netz-Signal*: Wann ist es netzdienlich, Verbrauch zu verschieben? Abdeckung: Baden-Württemberg sowie Pilotgebiete (z. B. Teile Niedersachsens).

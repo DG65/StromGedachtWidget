@@ -40,6 +40,18 @@ Für den geplanten `SGW_GetState()`-Vertrag heißt das: Feldnamen englisch
 (`state`, `label`, `gsi`, `ecSignal`, `ecShare`, `updated`), das `label`-**Feld** aber mit
 deutschem Anzeigetext füllen.
 
+## Vertragsversionierung (Verbund-Konvention, 23.07.2026)
+
+Manifest: https://github.com/DG65/EMS/blob/main/SUITE.md
+
+- **Modul-Version** bleibt unser SemVer (Datei `library.json`/`module.json`).
+- **Vertragsversion:** Sobald `SGW_GetState()`/`SGW_GetForecast()` gebaut werden, liefern sie von
+  Anfang an ein Feld `contractVersion` => `'1.0'` (Major.Minor als String). **Major nur bei einem
+  echten Bruch** erhöhen — Kompatibilität wird nur innerhalb derselben Major garantiert
+  (blue'Log-Prinzip). Fehlt das Feld beim Konsumenten, gilt `'1.0'`.
+- **Konsument** (EMS/InverterHub) prüft die Mindest-Major; bei Inkompatibilität läuft er
+  standalone weiter, deaktiviert die Kopplung und meldet das **sichtbar**.
+
 ## Emojis
 
 Verbund-Regel (Entscheidung Dietmar 23.07.2026, ersetzt jede frühere „keine Emojis"-Vorgabe):
