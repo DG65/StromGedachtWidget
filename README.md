@@ -145,6 +145,6 @@ Siehe [CHANGELOG.md](CHANGELOG.md).
 
 ## Lizenz
 
-[MIT](LICENSE) — © 2026 Dietmar Gureth
+[PolyForm Noncommercial License 1.0.0](LICENSE) — © 2026 Dietmar Gureth (DG65). Private und nicht-kommerzielle Nutzung ist frei; gewerbliche Nutzung ist lizenzpflichtig (Kontakt: DG65). Ältere Versionen, die unter MIT veröffentlicht wurden, bleiben MIT.
 
 StromGedacht ist ein Angebot der TransnetBW GmbH, der GrünstromIndex ein Angebot der STROMDAO GmbH, die Stromampel ein Angebot des Fraunhofer ISE. Dieses Modul ist ein privates Community-Projekt und steht in keiner Verbindung zu diesen Anbietern.
