@@ -85,13 +85,6 @@ class StromGedachtWidget extends IPSModule
             IPS_SetVariableProfileAssociation('SGW.State', 4, 'Rot', '', 0xD50000);
         }
 
-        if (!IPS_VariableProfileExists('SGW.GSI')) {
-            IPS_CreateVariableProfile('SGW.GSI', VARIABLETYPE_FLOAT);
-            IPS_SetVariableProfileValues('SGW.GSI', 0, 100, 1);
-            IPS_SetVariableProfileDigits('SGW.GSI', 1);
-            IPS_SetVariableProfileText('SGW.GSI', '', ' %');
-        }
-
         if (!IPS_VariableProfileExists('SGW.ECSignal')) {
             IPS_CreateVariableProfile('SGW.ECSignal', VARIABLETYPE_INTEGER);
             IPS_SetVariableProfileAssociation('SGW.ECSignal', -1, 'Rot (Netzengpass)', '', 0xD50000);
@@ -100,11 +93,13 @@ class StromGedachtWidget extends IPSModule
             IPS_SetVariableProfileAssociation('SGW.ECSignal', 2, 'Grün', '', 0x00C853);
         }
 
-        if (!IPS_VariableProfileExists('SGW.Percent')) {
-            IPS_CreateVariableProfile('SGW.Percent', VARIABLETYPE_FLOAT);
-            IPS_SetVariableProfileValues('SGW.Percent', 0, 100, 1);
-            IPS_SetVariableProfileDigits('SGW.Percent', 1);
-            IPS_SetVariableProfileText('SGW.Percent', '', ' %');
+        // Gemeinsames NRG-Stack-Profil für physikalische Grundgrößen (kein Eigentümer-Modul,
+        // idempotent anlegen) statt eigener SGW.GSI/SGW.Percent-Duplikate — siehe EMS/SUITE.md
+        if (!IPS_VariableProfileExists('NRG.Percent')) {
+            IPS_CreateVariableProfile('NRG.Percent', VARIABLETYPE_FLOAT);
+            IPS_SetVariableProfileValues('NRG.Percent', 0, 100, 1);
+            IPS_SetVariableProfileDigits('NRG.Percent', 1);
+            IPS_SetVariableProfileText('NRG.Percent', '', ' %');
         }
 
         $this->RegisterTimer('UpdateTimer', 0, 'SGW_Update($_IPS["TARGET"]);');
@@ -126,9 +121,9 @@ class StromGedachtWidget extends IPSModule
         // Variablen je aktivierter Quelle pflegen (nicht benötigte werden entfernt)
         $this->MaintainVariable('State', 'Ampel', VARIABLETYPE_INTEGER, 'SGW.State', 1, $sg);
         $this->MaintainVariable('Text', 'Status Text', VARIABLETYPE_STRING, '', 2, $sg);
-        $this->MaintainVariable('GSI', 'GrünstromIndex', VARIABLETYPE_FLOAT, 'SGW.GSI', 3, $gsi);
+        $this->MaintainVariable('GSI', 'GrünstromIndex', VARIABLETYPE_FLOAT, 'NRG.Percent', 3, $gsi);
         $this->MaintainVariable('ECSignal', 'Stromampel', VARIABLETYPE_INTEGER, 'SGW.ECSignal', 4, $ec);
-        $this->MaintainVariable('ECShare', 'EE-Anteil', VARIABLETYPE_FLOAT, 'SGW.Percent', 5, $ec);
+        $this->MaintainVariable('ECShare', 'EE-Anteil', VARIABLETYPE_FLOAT, 'NRG.Percent', 5, $ec);
         $this->MaintainVariable('Updated', 'Aktualisiert', VARIABLETYPE_INTEGER, '~UnixTimestamp', 6, true);
         $this->MaintainVariable('Widget', 'Anzeige', VARIABLETYPE_STRING, '~HTMLBox', 7, true);
 

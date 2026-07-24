@@ -24,7 +24,7 @@ Jede Quelle lässt sich einzeln aktivieren. Liefert eine Quelle keine Daten (z. 
 | 3 | Orange | Strom sparen bzw. Verbrauch verschieben empfohlen |
 | 4 | Rot | Verbrauch reduzieren, um Netzengpass zu vermeiden |
 
-### GrünstromIndex (Profil `SGW.GSI`)
+### GrünstromIndex (Profil `NRG.Percent`)
 
 Index 0–100 %. Für die Widget-Darstellung gilt: ≥ 66 grün, ≥ 33 gelb, darunter rot.
 
@@ -74,9 +74,9 @@ Aktualisierungen werden ebenfalls über die Modulverwaltung eingespielt („Aktu
 |-------|------|--------|-----|--------------|
 | `State` | Ampel | StromGedacht | Integer (`SGW.State`) | Aktueller Netz-Zustand |
 | `Text` | Status Text | StromGedacht | String | Empfehlungstext zum aktuellen Zustand |
-| `GSI` | GrünstromIndex | GrünstromIndex | Float (`SGW.GSI`) | Aktueller Indexwert 0–100 % |
+| `GSI` | GrünstromIndex | GrünstromIndex | Float (`NRG.Percent`) | Aktueller Indexwert 0–100 % |
 | `ECSignal` | Stromampel | Energy-Charts | Integer (`SGW.ECSignal`) | Aktuelles Ampelsignal |
-| `ECShare` | EE-Anteil | Energy-Charts | Float (`SGW.Percent`) | Anteil erneuerbarer Energien an der Last |
+| `ECShare` | EE-Anteil | Energy-Charts | Float (`NRG.Percent`) | Anteil erneuerbarer Energien an der Last |
 | `Updated` | Aktualisiert | immer | Integer (`~UnixTimestamp`) | Zeitpunkt der letzten erfolgreichen Aktualisierung |
 | `Widget` | Anzeige | immer | String (`~HTMLBox`) | Alle aktivierten Quellen nebeneinander als Ampel-Spalten |
 
