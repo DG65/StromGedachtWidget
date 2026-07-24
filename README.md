@@ -115,6 +115,26 @@ SGW_Update(int $InstanzID);
 
 Weitere Funktionen verwalten die Automationen (v. a. für die Kachel gedacht, siehe [Automationen](#automationen-wenn--dann)): `SGW_GetDataActions`, `SGW_SetDataAction`, `SGW_DeleteDataAction`, `SGW_SetDataActionActive`, `SGW_GetDataActionEditor`, `SGW_GetTargetValueOptions`.
 
+### NRG-Stack-Vertrag (für andere Module, z. B. EMS)
+
+```php
+// Aktueller Zustand aller aktivierten Quellen (contractVersion 1.0)
+SGW_GetState(int $InstanzID): array
+// -> ['contractVersion' => '1.0', 'state' => int|null, 'label' => string,
+//     'gsi' => float|null, 'ecSignal' => int|null, 'ecShare' => float|null, 'updated' => int]
+// Felder sind null, wenn die jeweilige Quelle in dieser Instanz nicht aktiviert ist.
+
+// Vorschau im Zeitraum [$Von, $Bis] (Unix-Timestamps)
+SGW_GetForecast(int $InstanzID, int $Von, int $Bis): array
+// -> Liste von ['contractVersion' => '1.0', 'source' => 'stromgedacht', 'from' => int, 'to' => int, 'value' => float]
+// Aktuell nur die Quelle 'stromgedacht' implementiert (StromGedacht-API, Horizont max. 48 h ab
+// jetzt, unregelmäßige Zustands-Segmente statt festem Raster); 'gsi'/'energycharts' liefern noch
+// keine Einträge. Leeres Ergebnis, wenn StromGedacht nicht aktiviert ist, keine PLZ hinterlegt
+// ist, oder die API nicht erreichbar war.
+```
+
+StromGedacht ist dabei eine **Empfehlung, keine Pflicht** — ein konsumierendes Modul (z. B. das EMS) darf sie überstimmen, wenn gesetzliche Vorgaben (§14a), Direktvermarktung oder Nutzerkomfort dagegenstehen.
+
 ## Datenquellen / APIs
 
 ```

@@ -265,6 +265,99 @@ class StromGedachtWidget extends IPSModule
         }
     }
 
+    // ---------------------------------------------------------------------
+    // NRG-Stack-Vertrag (contractVersion 1.0): stabile Getter für andere
+    // Module des Verbunds (z. B. EMS). StromGedacht ist eine Empfehlung,
+    // keine Pflicht - anders als z. B. EMS_GetSpecialEvents (erzwungene
+    // externe Eingriffe).
+    // ---------------------------------------------------------------------
+
+    /**
+     * Aktueller Zustand aller aktivierten Quellen. Felder sind null, wenn die
+     * jeweilige Quelle in dieser Instanz nicht aktiviert ist.
+     */
+    public function GetState(): array
+    {
+        $stateRaw = $this->ReadPropertyBoolean('EnableStromGedacht') ? $this->GetOwnValue('State') : null;
+        $state = $stateRaw !== null ? (int) $stateRaw : null;
+        $gsiRaw = $this->ReadPropertyBoolean('EnableGSI') ? $this->GetOwnValue('GSI') : null;
+        $ecSignalRaw = $this->ReadPropertyBoolean('EnableEnergyCharts') ? $this->GetOwnValue('ECSignal') : null;
+        $ecShareRaw = $this->ReadPropertyBoolean('EnableEnergyCharts') ? $this->GetOwnValue('ECShare') : null;
+        $updatedRaw = $this->GetOwnValue('Updated');
+
+        return [
+            'contractVersion' => '1.0',
+            'state'    => $state,
+            'label'    => $state !== null ? (self::SG_LABELS[$state] ?? 'Unbekannt') : 'StromGedacht deaktiviert',
+            'gsi'      => $gsiRaw !== null ? (float) $gsiRaw : null,
+            'ecSignal' => $ecSignalRaw !== null ? (int) $ecSignalRaw : null,
+            'ecShare'  => $ecShareRaw !== null ? (float) $ecShareRaw : null,
+            'updated'  => $updatedRaw !== null ? (int) $updatedRaw : 0
+        ];
+    }
+
+    /**
+     * Vorschau im Zeitraum [$Von, $Bis] (Unix-Timestamps). Aktuell nur die
+     * StromGedacht-Netzampel implementiert (per Verbund-Vorgabe die einzige
+     * planungsrelevante Quelle) - 'gsi'/'energycharts' liefern noch keine
+     * Einträge. API-Horizont: maximal 48 Stunden ab jetzt; die Zeiträume
+     * sind unregelmäßige Zustands-Segmente, kein festes Raster.
+     */
+    public function GetForecast(int $Von, int $Bis): array
+    {
+        if (!$this->ReadPropertyBoolean('EnableStromGedacht')) {
+            return [];
+        }
+        $zip = trim($this->ReadPropertyString('ZipCode'));
+        if ($zip === '' || $Bis <= $Von) {
+            return [];
+        }
+
+        $hoursInFuture = (int) ceil(max(1, $Bis - time()) / 3600);
+        $hoursInFuture = max(1, min(48, $hoursInFuture));
+
+        [$code, $body] = $this->HttpGet('https://api.stromgedacht.de/v1/statesRelative?zip=' . urlencode($zip) . '&hoursInFuture=' . $hoursInFuture);
+        $data = $this->DecodeJson($code, $body);
+        if ($data === null || !isset($data['states']) || !is_array($data['states'])) {
+            $this->SendDebug('GetForecast', 'API nicht erreichbar oder ungültige Antwort', 0);
+            return [];
+        }
+
+        $entries = [];
+        foreach ($data['states'] as $period) {
+            if (!is_array($period) || !isset($period['from'], $period['to'], $period['state'])) {
+                continue;
+            }
+            $from = strtotime((string) $period['from']);
+            $to = strtotime((string) $period['to']);
+            if ($from === false || $to === false) {
+                continue;
+            }
+            // Auf den angefragten Zeitraum zuschneiden
+            $from = max($from, $Von);
+            $to = min($to, $Bis);
+            if ($to <= $from) {
+                continue;
+            }
+            $entries[] = [
+                'contractVersion' => '1.0',
+                'source' => 'stromgedacht',
+                'from'   => $from,
+                'to'     => $to,
+                'value'  => (float) $period['state']
+            ];
+        }
+
+        return $entries;
+    }
+
+    /** Liest eine eigene Instanz-Variable per Ident, oder null wenn sie nicht existiert. */
+    private function GetOwnValue(string $ident)
+    {
+        $vid = @IPS_GetObjectIDByIdent($ident, $this->InstanceID);
+        return ($vid !== false && $vid > 0) ? GetValue($vid) : null;
+    }
+
     private function FetchStromGedacht(string $zip, int &$ok, int &$zipUnknown, int &$failed): array
     {
         $column = ['title' => 'StromGedacht', 'color' => self::COLOR_GREY, 'label' => 'Keine Daten', 'text' => ''];

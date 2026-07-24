@@ -2,6 +2,13 @@
 
 Alle nennenswerten Änderungen an StromGedachtWidget.
 
+## 1.5.0 (2026-07-24)
+
+- **`SGW_GetState()`**: stabiler NRG-Stack-Vertrag (contractVersion 1.0) — aktueller Zustand aller aktivierten Quellen als Array, für andere Module des Verbunds (z. B. EMS)
+- **`SGW_GetForecast()`**: Vorschau der StromGedacht-Netzampel für einen Zeitraum, auf Basis der bisher nicht angebundenen `/v1/statesRelative`-API (Horizont max. 48 h); GrünstromIndex/Energy-Charts liefern hier laut Verbund-Vorgabe bewusst noch keine Einträge (nicht planungsrelevant)
+- Lizenzwechsel MIT → PolyForm Noncommercial 1.0.0 (NRG-Stack-weite Umstellung: privat/nicht-kommerziell frei, gewerblich lizenzpflichtig)
+- Teil des NRG-Stack-Modulverbunds (vormals „DG65 Energie-Suite") — siehe [SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md)
+
 ## 1.4.0 (2026-07-13)
 
 - Neues eigenständiges Kachel-Modul **StromGedachtTile** — grafisch einstellbare native Kachel fürs WebFront (Ampelfarben, Flächen-/Textfarben, Schrift), erkennt die Quelle automatisch bei genau einer StromGedachtWidget-Instanz
