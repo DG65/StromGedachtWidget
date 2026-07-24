@@ -2,9 +2,9 @@
 
 ## Sprachregel: alles Nutzersichtbare auf Deutsch
 
-Verbindliche Verbund-Regel (angeordnet von Dietmar am 22.07.2026, gilt für alle zehn Module
-der DG65-Energie-Suite): **keine englischen Sätze/Ausdrücke und keine vermeidbaren Anglizismen**
-in allem, was der Nutzer zu sehen bekommt.
+Verbindliche Verbund-Regel (angeordnet von Dietmar am 22.07.2026, gilt für alle Module des
+**NRG-Stack** — der Produktname des DG65-Modulverbunds): **keine englischen Sätze/Ausdrücke und
+keine vermeidbaren Anglizismen** in allem, was der Nutzer zu sehen bekommt.
 
 Betroffen sind:
 
